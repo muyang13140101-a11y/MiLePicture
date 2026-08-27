@@ -4,8 +4,7 @@ import android.app.Application
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.milepicture.app.data.api.ApiClient
-import com.milepicture.app.data.api.MiLePictureApiService
+import com.milepicture.app.data.engine.NativeAggregatorEngine
 import com.milepicture.app.data.model.*
 import com.milepicture.app.data.repository.FavoritesRepository
 import com.milepicture.app.utils.ImageDownloadHelper
@@ -16,15 +15,7 @@ import kotlinx.coroutines.launch
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val apiService: MiLePictureApiService
-        get() = ApiClient.getService()
     private val favoritesRepo = FavoritesRepository(application)
-
-    fun updateServerUrl(newUrl: String) {
-        ApiClient.updateBaseUrl(newUrl)
-        _errorMessage.value = null
-        loadInitialData()
-    }
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -32,7 +23,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedTagId = MutableStateFlow("all")
     val selectedTagId: StateFlow<String> = _selectedTagId.asStateFlow()
 
-    private val _tags = MutableStateFlow<List<PopularTag>>(emptyList())
+    private val _tags = MutableStateFlow<List<PopularTag>>(NativeAggregatorEngine.POPULAR_TAGS)
     val tags: StateFlow<List<PopularTag>> = _tags.asStateFlow()
 
     private val _images = MutableStateFlow<List<UnifiedImage>>(emptyList())
@@ -50,7 +41,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _favorites = MutableStateFlow<List<UnifiedImage>>(emptyList())
     val favorites: StateFlow<List<UnifiedImage>> = _favorites.asStateFlow()
 
-    private val _sources = MutableStateFlow<List<SourceInfo>>(emptyList())
+    private val _sources = MutableStateFlow<List<SourceInfo>>(NativeAggregatorEngine.SOURCES_LIST)
     val sources: StateFlow<List<SourceInfo>> = _sources.asStateFlow()
 
     private val _selectedSourceFilter = MutableStateFlow<String?>(null)
@@ -59,29 +50,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _onlyPublicDomain = MutableStateFlow(false)
     val onlyPublicDomain: StateFlow<Boolean> = _onlyPublicDomain.asStateFlow()
 
+    // 网络健康诊断状态 (源名称 -> 延迟毫秒数, -1 表示超时)
+    private val _diagnosticResults = MutableStateFlow<Map<String, Long>>(emptyMap())
+    val diagnosticResults: StateFlow<Map<String, Long>> = _diagnosticResults.asStateFlow()
+
+    private val _isDiagnosing = MutableStateFlow(false)
+    val isDiagnosing: StateFlow<Boolean> = _isDiagnosing.asStateFlow()
+
     init {
-        // 读取本地持久化收藏列表
         _favorites.value = favoritesRepo.loadFavorites()
         loadInitialData()
     }
 
     fun loadInitialData() {
-        viewModelScope.launch {
-            try {
-                // 1. 加载标签
-                val tagsRes = apiService.getPopularTags()
-                _tags.value = tagsRes.tags
-
-                // 2. 加载来源信息
-                val sourcesRes = apiService.getSources()
-                _sources.value = sourcesRes.sources
-
-                // 3. 执行首屏搜索
-                search("art", 1)
-            } catch (e: Exception) {
-                _errorMessage.value = "连接后端服务失败: ${e.localizedMessage ?: "请确认 server 已启动并在同局域网"}"
-            }
-        }
+        _tags.value = NativeAggregatorEngine.POPULAR_TAGS
+        _sources.value = NativeAggregatorEngine.SOURCES_LIST
+        search("art", 1)
     }
 
     fun onQueryChange(newQuery: String) {
@@ -120,7 +104,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             Toast.makeText(getApplication(), "❤️ 已添加至收藏", Toast.LENGTH_SHORT).show()
         }
         _favorites.value = current
-        favoritesRepo.saveFavorites(current) // 持久化保存
+        favoritesRepo.saveFavorites(current)
     }
 
     fun isFavorite(imageId: String): Boolean {
@@ -143,20 +127,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * 运行网络健康检测 (/health 诊断)
+     */
+    fun runNetworkDiagnostics() {
+        viewModelScope.launch {
+            _isDiagnosing.value = true
+            try {
+                val results = NativeAggregatorEngine.diagnoseNetwork()
+                _diagnosticResults.value = results
+                Toast.makeText(getApplication(), "网络健康诊断完成", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(getApplication(), "诊断异常: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+            } finally {
+                _isDiagnosing.value = false
+            }
+        }
+    }
+
     private fun search(query: String, page: Int) {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
             try {
-                val licenseParam = if (_onlyPublicDomain.value) "public_domain_cc0" else null
-                val response = apiService.searchImages(
-                    query = query,
-                    sources = _selectedSourceFilter.value,
-                    license = licenseParam,
+                // 原生端侧直连聚合搜索，0 中间服务器依赖
+                val response = NativeAggregatorEngine.search(
+                    rawQuery = query,
                     page = page,
-                    pageSize = 24
+                    sourceFilter = _selectedSourceFilter.value
                 )
-                _images.value = response.items
+
+                var items = response.items
+                if (_onlyPublicDomain.value) {
+                    items = items.filter { it.license.licenseClass == "public_domain" || it.license.licenseClass == "cc0" }
+                }
+
+                _images.value = items
             } catch (e: Exception) {
                 _errorMessage.value = "搜索异常: ${e.localizedMessage}"
             } finally {

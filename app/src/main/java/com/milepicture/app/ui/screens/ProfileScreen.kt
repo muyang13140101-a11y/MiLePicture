@@ -1,9 +1,11 @@
 package com.milepicture.app.ui.screens
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -15,7 +17,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.milepicture.app.data.api.ApiClient
 import com.milepicture.app.data.model.UnifiedImage
 import com.milepicture.app.ui.components.ImageCard
 import com.milepicture.app.ui.components.SourceBadge
@@ -29,48 +30,15 @@ fun ProfileScreen(
 ) {
     val favorites by viewModel.favorites.collectAsState()
     val sources by viewModel.sources.collectAsState()
-    var showServerDialog by remember { mutableStateOf(false) }
-    var serverUrlInput by remember { mutableStateOf(ApiClient.BASE_URL) }
-
-    if (showServerDialog) {
-        AlertDialog(
-            onDismissRequest = { showServerDialog = false },
-            title = { Text("配置后端服务地址") },
-            text = {
-                Column {
-                    Text(
-                        "USB 直连填 http://127.0.0.1:3000/\n局域网填电脑 IP，如 http://192.168.1.5:3000/",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = serverUrlInput,
-                        onValueChange = { serverUrlInput = it },
-                        label = { Text("后端服务 URL") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    showServerDialog = false
-                    viewModel.updateServerUrl(serverUrlInput)
-                }) { Text("保存并重连") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showServerDialog = false }) { Text("取消") }
-            }
-        )
-    }
+    val diagnosticResults by viewModel.diagnosticResults.collectAsState()
+    val isDiagnosing by viewModel.isDiagnosing.collectAsState()
 
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = modifier.fillMaxSize()
     ) {
-        // 收藏区域
+        // 1. 我的收藏标题
         item {
             Text(
                 text = "我的收藏",
@@ -102,12 +70,12 @@ fun ProfileScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "暂无收藏",
+                            text = "暂无收藏作品",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "浏览探索页时点击红心即可收藏",
+                            text = "在探索页面浏览时点击红心，即可离线保存",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                         )
@@ -115,7 +83,6 @@ fun ProfileScreen(
                 }
             }
         } else {
-            // 收藏图片横向 2 列网格（嵌套在 LazyColumn 中用 FlowRow）
             items(favorites.chunked(2)) { rowItems ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -128,7 +95,6 @@ fun ProfileScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    // 如果是奇数行，添加占位
                     if (rowItems.size == 1) {
                         Spacer(modifier = Modifier.weight(1f))
                     }
@@ -144,10 +110,10 @@ fun ProfileScreen(
             )
         }
 
-        // 服务配置
+        // 2. 商业级「网络健康与引擎架构」卡片
         item {
             Text(
-                text = "设置",
+                text = "网络架构与健康检测",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -157,65 +123,102 @@ fun ProfileScreen(
             Card(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
                 ),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Dns,
-                                contentDescription = "Server",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .background(Color(0xFF10B981), CircleShape)
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "后端服务地址",
+                                text = "原生端侧聚合引擎 (零依赖)",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = ApiClient.BASE_URL,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+
+                        FilledTonalButton(
+                            onClick = { viewModel.runNetworkDiagnostics() },
+                            enabled = !isDiagnosing,
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            if (isDiagnosing) {
+                                CircularProgressIndicator(
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("测速中...", fontSize = 12.sp)
+                            } else {
+                                Icon(Icons.Default.Speed, contentDescription = "Ping", modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("健康测速", fontSize = 12.sp)
+                            }
+                        }
                     }
-                    FilledTonalButton(
-                        onClick = {
-                            serverUrlInput = ApiClient.BASE_URL
-                            showServerDialog = true
-                        },
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("修改", fontSize = 13.sp)
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "架构说明: App 原生直连各大官方公开 API 并内置语义翻译与 CC0 兜底池，无需电脑开机，全球 4G/5G 随时可用。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+
+                    // 测速结果展示
+                    if (diagnosticResults.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                                .padding(10.dp)
+                        ) {
+                            diagnosticResults.forEach { (targetName, latency) ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(targetName, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                    if (latency > 0) {
+                                        Text(
+                                            text = "${latency}ms 🟢",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (latency < 1000) Color(0xFF10B981) else Color(0xFFF59E0B)
+                                        )
+                                    } else {
+                                        Text("受限/兜底 🟡", fontSize = 12.sp, color = Color(0xFFF59E0B))
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // 图库源列表
+        // 3. 图库来源列表
         item {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "图库来源",
+                text = "聚合图库来源与协议",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "严格遵循各供应商 API 条款",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 

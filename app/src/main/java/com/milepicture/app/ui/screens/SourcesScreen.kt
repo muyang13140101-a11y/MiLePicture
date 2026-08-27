@@ -8,8 +8,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.PauseCircle
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,7 +16,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.milepicture.app.data.api.ApiClient
 import com.milepicture.app.ui.components.SourceBadge
 import com.milepicture.app.ui.viewmodel.MainViewModel
 
@@ -28,102 +25,12 @@ fun SourcesScreen(
     modifier: Modifier = Modifier
 ) {
     val sources by viewModel.sources.collectAsState()
-    var showServerDialog by remember { mutableStateOf(false) }
-    var serverUrlInput by remember { mutableStateOf(ApiClient.BASE_URL) }
-
-    if (showServerDialog) {
-        AlertDialog(
-            onDismissRequest = { showServerDialog = false },
-            title = { Text("配置后端服务地址") },
-            text = {
-                Column {
-                    Text(
-                        "真机调试请确保手机与电脑在同一 WiFi 下，并填入电脑的局域网 IP（例如 http://192.168.1.5:3000/）。\n若是官方模拟器可填 http://10.0.2.2:3000/",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedTextField(
-                        value = serverUrlInput,
-                        onValueChange = { serverUrlInput = it },
-                        label = { Text("后端服务 URL") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    showServerDialog = false
-                    viewModel.updateServerUrl(serverUrlInput)
-                }) {
-                    Text("保存并重连")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showServerDialog = false }) {
-                    Text("取消")
-                }
-            }
-        )
-    }
 
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = modifier.fillMaxSize()
     ) {
-        item {
-            Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                ),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Dns,
-                                contentDescription = "Server",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "后端聚合服务地址",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = ApiClient.BASE_URL,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                        )
-                    }
-                    OutlinedButton(
-                        onClick = {
-                            serverUrlInput = ApiClient.BASE_URL
-                            showServerDialog = true
-                        },
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("修改 IP")
-                    }
-                }
-            }
-        }
-
         item {
             Text(
                 text = "🏛️ 聚合图库来源与合规声明",
@@ -132,7 +39,7 @@ fun SourcesScreen(
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "MiLePicture 采用后端安全聚合架构，严格遵循各供应商 API 条款与知识产权规范。",
+                text = "MiLePicture 采用端侧原生聚合架构，严格遵循各供应商 API 条款与知识产权规范。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -165,7 +72,7 @@ fun SourcesScreen(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = if (isEnabled) "已就绪" else "待准入/待文档",
+                                text = if (isEnabled) "已就绪" else "待准入",
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = if (isEnabled) Color(0xFF10B981) else Color(0xFFF59E0B)
