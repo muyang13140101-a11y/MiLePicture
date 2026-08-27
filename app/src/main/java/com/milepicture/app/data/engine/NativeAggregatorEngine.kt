@@ -10,12 +10,17 @@ import java.util.concurrent.TimeUnit
 
 /**
  * 商业级原生端侧多源聚合引擎 (Native In-App Multi-Source Engine)
- * 内置大都会博物馆、维基共享资源、微软必应 4K 官方壁纸、NASA 宇宙天文图库等，
- * 国内网络全环境毫秒级直连，不依赖中间服务器。
+ * 已配置用户专属 API Key: Unsplash, Pixabay, Pexels, Wallhaven, The Met, Wikimedia, Bing 4K
  */
 object NativeAggregatorEngine {
 
     private const val COMPLIANT_USER_AGENT = "MiLePicture/1.0 (https://github.com/muyang13140101-a11y/MiLePicture; muyang13140101@gmail.com)"
+
+    // 用户专属 API Key 配置
+    private const val UNSPLASH_ACCESS_KEY = "fCY11SQN7NrbO-sS8_apII-lQXkMUlTshk9rQdm9vwc"
+    private const val PIXABAY_API_KEY = "53312716-9814421362fbbe2d0c40a739e"
+    private const val PEXELS_API_KEY = "rRzig9DDb71696aibKDrtaCa1wr8U0L7M00QTKFwooVzZ4c7Hcn88BNY"
+    private const val WALLHAVEN_API_KEY = "BSNQRlRmZV27Y86tlYl7845PPNxmnuEm"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(6, TimeUnit.SECONDS)
@@ -27,14 +32,45 @@ object NativeAggregatorEngine {
         PopularTag("all", "全部灵感", "art"),
         PopularTag("nature", "自然风景", "nature landscape"),
         PopularTag("met", "大都会艺术", "masterpiece painting"),
+        PopularTag("photography", "精选摄影", "photography"),
         PopularTag("bing", "必应4K壁纸", "wallpaper"),
-        PopularTag("space", "宇宙星空", "space galaxy universe"),
         PopularTag("flower", "繁花似锦", "flowers blooming"),
-        PopularTag("anime", "插画二次元", "illustration artwork"),
+        PopularTag("cyberpunk", "赛博朋克", "cyberpunk neon"),
+        PopularTag("anime", "插画动漫", "illustration anime"),
         PopularTag("architecture", "城市建筑", "architecture modern")
     )
 
     val SOURCES_LIST = listOf(
+        SourceInfo(
+            id = "unsplash",
+            name = "Unsplash (全球高品质摄影)",
+            description = "全球知名的顶级摄影师社区，光影细腻、质感超群。",
+            enabled = true,
+            releaseState = "active",
+            requiresKey = true,
+            isKeyConfigured = true,
+            licenseHighlights = "Unsplash License (商业/非商业免费使用)"
+        ),
+        SourceInfo(
+            id = "pixabay",
+            name = "Pixabay (400万+ 插画与摄影)",
+            description = "全球领先的免费版权插画、矢量与高清摄影库。",
+            enabled = true,
+            releaseState = "active",
+            requiresKey = true,
+            isKeyConfigured = true,
+            licenseHighlights = "Pixabay License (免版税无限制使用)"
+        ),
+        SourceInfo(
+            id = "pexels",
+            name = "Pexels (精美摄影社区)",
+            description = "高水准全球摄影师作品库，涵盖生活、自然、艺术等。",
+            enabled = true,
+            releaseState = "active",
+            requiresKey = true,
+            isKeyConfigured = true,
+            licenseHighlights = "Pexels License (可免费商用/修改)"
+        ),
         SourceInfo(
             id = "met",
             name = "The Met (大都会艺术博物馆)",
@@ -44,6 +80,16 @@ object NativeAggregatorEngine {
             requiresKey = false,
             isKeyConfigured = true,
             licenseHighlights = "CC0 1.0 (开放访问公有领域)"
+        ),
+        SourceInfo(
+            id = "wallhaven",
+            name = "Wallhaven (极清 4K 壁纸)",
+            description = "全球顶尖高质量壁纸与数字艺术社区，拥有海量 4K/8K 创作。",
+            enabled = true,
+            releaseState = "active",
+            requiresKey = true,
+            isKeyConfigured = true,
+            licenseHighlights = "壁纸社区自由使用与个人非商用共享"
         ),
         SourceInfo(
             id = "wikimedia",
@@ -57,33 +103,13 @@ object NativeAggregatorEngine {
         ),
         SourceInfo(
             id = "bing",
-            name = "Bing 4K 官方超清壁纸 (微软必应)",
+            name = "Bing 4K (微软必应每日甄选)",
             description = "微软官方每日甄选全球极致风光、地理、动植物 4K 超清摄影。",
             enabled = true,
             releaseState = "active",
             requiresKey = false,
             isKeyConfigured = true,
             licenseHighlights = "微软必应每日全球甄选高清素材"
-        ),
-        SourceInfo(
-            id = "openverse",
-            name = "Openverse (WordPress CC0/CC)",
-            description = "全球最大的开源公有领域与知识共享多媒体搜索引擎，收录超 7 亿公有许可素材。",
-            enabled = true,
-            releaseState = "active",
-            requiresKey = false,
-            isKeyConfigured = true,
-            licenseHighlights = "CC0 / Public Domain / CC 授权"
-        ),
-        SourceInfo(
-            id = "wallhaven",
-            name = "Wallhaven (极清壁纸社区)",
-            description = "全球顶尖高质量壁纸与数字艺术社区，拥有海量 4K/8K 顶级画质创作。",
-            enabled = true,
-            releaseState = "active",
-            requiresKey = false,
-            isKeyConfigured = true,
-            licenseHighlights = "壁纸社区自由使用与个人非商用共享"
         )
     )
 
@@ -145,35 +171,6 @@ object NativeAggregatorEngine {
                 evidence = "public_domain_flag"
             ),
             actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
-        ),
-        UnifiedImage(
-            id = "bing:today",
-            source = "bing",
-            sourceAssetId = "today",
-            kind = "wallpaper",
-            title = "微软必应每日精选 4K 摄影",
-            altText = "Bing Daily 4K Wallpaper",
-            width = 1920,
-            height = 1080,
-            aspectRatio = 1.77f,
-            tags = listOf("必应", "4K", "风景", "壁纸"),
-            color = null,
-            renditions = Renditions(
-                thumbnail = "https://cn.bing.com/th?id=OHR.RedRockCanyon_ZH-CN1234567890_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp",
-                preview = "https://cn.bing.com/th?id=OHR.RedRockCanyon_ZH-CN1234567890_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp",
-                large = "https://cn.bing.com/th?id=OHR.RedRockCanyon_ZH-CN1234567890_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp"
-            ),
-            creator = Creator(name = "Microsoft Bing", profileUrl = null),
-            landingPageUrl = "https://cn.bing.com",
-            license = LicenseInfo(
-                licenseClass = "custom",
-                code = "Bing Featured",
-                version = null,
-                url = null,
-                attributionText = "Photo via Microsoft Bing",
-                evidence = "bing_api"
-            ),
-            actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
         )
     )
 
@@ -185,7 +182,7 @@ object NativeAggregatorEngine {
         val enQuery = LocalTranslator.translate(rawQuery)
 
         val activeSources = if (sourceFilter.isNullOrBlank()) {
-            listOf("met", "wikimedia", "bing", "openverse", "wallhaven")
+            listOf("unsplash", "pixabay", "pexels", "met", "wikimedia", "bing", "wallhaven")
         } else {
             listOf(sourceFilter)
         }
@@ -194,10 +191,12 @@ object NativeAggregatorEngine {
             async {
                 try {
                     when (src) {
+                        "unsplash" -> fetchUnsplash(enQuery, page)
+                        "pixabay" -> fetchPixabay(enQuery, page)
+                        "pexels" -> fetchPexels(enQuery, page)
                         "met" -> fetchMet(enQuery, page)
                         "wikimedia" -> fetchWikimedia(enQuery, page)
                         "bing" -> fetchBing(enQuery, page)
-                        "openverse" -> fetchOpenverse(enQuery, page)
                         "wallhaven" -> fetchWallhaven(enQuery, page)
                         else -> emptyList()
                     }
@@ -235,7 +234,201 @@ object NativeAggregatorEngine {
     }
 
     /**
-     * 1. 大都会艺术博物馆 API (全球直连，50万+世界名作)
+     * 1. Unsplash (官方 Access Key 检索)
+     */
+    private fun fetchUnsplash(query: String, page: Int): List<UnifiedImage> {
+        val url = "https://api.unsplash.com/search/photos?query=${URLEncoder.encode(query, "UTF-8")}&page=$page&per_page=12"
+        val request = Request.Builder()
+            .url(url)
+            .header("Authorization", "Client-ID $UNSPLASH_ACCESS_KEY")
+            .header("User-Agent", COMPLIANT_USER_AGENT)
+            .build()
+        val response = client.newCall(request).execute()
+        if (!response.isSuccessful) return emptyList()
+
+        val root = JSONObject(response.body?.string() ?: "")
+        if (!root.has("results") || root.isNull("results")) return emptyList()
+        val results = root.getJSONArray("results")
+
+        val items = mutableListOf<UnifiedImage>()
+        for (i in 0 until results.length()) {
+            val obj = results.getJSONObject(i)
+            val id = if (obj.has("id")) obj.getString("id") else continue
+            val urls = if (obj.has("urls")) obj.getJSONObject("urls") else continue
+            val regularUrl = if (urls.has("regular")) urls.getString("regular") else continue
+            val smallUrl = if (urls.has("small")) urls.getString("small") else regularUrl
+            val fullUrl = if (urls.has("full")) urls.getString("full") else regularUrl
+            val width = obj.optInt("width", 1080)
+            val height = obj.optInt("height", 720)
+            val ratio = if (width > 0 && height > 0) (width.toFloat() / height).coerceIn(0.5f, 2.0f) else 1.0f
+
+            val userObj = if (obj.has("user")) obj.getJSONObject("user") else null
+            val authorName = userObj?.optString("name", "Unsplash Photographer") ?: "Unsplash Photographer"
+            val profileUrl = userObj?.optString("portfolio_url")
+            val title = obj.optString("description", obj.optString("alt_description", "Unsplash Photo"))
+            val linksObj = if (obj.has("links")) obj.getJSONObject("links") else null
+            val landingUrl = linksObj?.optString("html", "https://unsplash.com/photos/$id") ?: "https://unsplash.com/photos/$id"
+
+            items.add(
+                UnifiedImage(
+                    id = "unsplash:$id",
+                    source = "unsplash",
+                    sourceAssetId = id,
+                    kind = "photo",
+                    title = title,
+                    altText = title,
+                    width = width,
+                    height = height,
+                    aspectRatio = ratio,
+                    tags = listOf("Unsplash", "摄影", "高画质"),
+                    color = obj.optString("color"),
+                    renditions = Renditions(thumbnail = smallUrl, preview = regularUrl, large = fullUrl),
+                    creator = Creator(name = authorName, profileUrl = profileUrl),
+                    landingPageUrl = landingUrl,
+                    license = LicenseInfo(
+                        licenseClass = "custom_commercial_ok",
+                        code = "Unsplash License",
+                        version = null,
+                        url = "https://unsplash.com/license",
+                        attributionText = "Photo by $authorName on Unsplash",
+                        evidence = "unsplash_api"
+                    ),
+                    actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
+                )
+            )
+        }
+        return items
+    }
+
+    /**
+     * 2. Pixabay (官方 API Key 检索)
+     */
+    private fun fetchPixabay(query: String, page: Int): List<UnifiedImage> {
+        val url = "https://pixabay.com/api/?key=$PIXABAY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&page=$page&per_page=12&image_type=all&safesearch=true"
+        val request = Request.Builder().url(url).header("User-Agent", COMPLIANT_USER_AGENT).build()
+        val response = client.newCall(request).execute()
+        if (!response.isSuccessful) return emptyList()
+
+        val root = JSONObject(response.body?.string() ?: "")
+        if (!root.has("hits") || root.isNull("hits")) return emptyList()
+        val hits = root.getJSONArray("hits")
+
+        val items = mutableListOf<UnifiedImage>()
+        for (i in 0 until hits.length()) {
+            val obj = hits.getJSONObject(i)
+            val id = obj.optString("id", "")
+            if (id.isBlank()) continue
+            val webformatURL = obj.optString("webformatURL", "")
+            val largeImageURL = obj.optString("largeImageURL", webformatURL)
+            val previewURL = obj.optString("previewURL", webformatURL)
+            if (webformatURL.isBlank()) continue
+
+            val width = obj.optInt("imageWidth", 1080)
+            val height = obj.optInt("imageHeight", 720)
+            val ratio = if (width > 0 && height > 0) (width.toFloat() / height).coerceIn(0.5f, 2.0f) else 1.0f
+            val user = obj.optString("user", "Pixabay Artist")
+            val tags = obj.optString("tags", "Pixabay").split(",").map { it.trim() }
+            val pageUrl = obj.optString("pageURL", "https://pixabay.com/photos/$id")
+
+            items.add(
+                UnifiedImage(
+                    id = "pixabay:$id",
+                    source = "pixabay",
+                    sourceAssetId = id,
+                    kind = "photo",
+                    title = tags.take(3).joinToString(" / "),
+                    altText = tags.joinToString(" "),
+                    width = width,
+                    height = height,
+                    aspectRatio = ratio,
+                    tags = tags.take(5),
+                    color = null,
+                    renditions = Renditions(thumbnail = previewURL, preview = webformatURL, large = largeImageURL),
+                    creator = Creator(name = user, profileUrl = null),
+                    landingPageUrl = pageUrl,
+                    license = LicenseInfo(
+                        licenseClass = "custom_commercial_ok",
+                        code = "Pixabay License",
+                        version = null,
+                        url = "https://pixabay.com/service/license-summary/",
+                        attributionText = "Image by $user from Pixabay",
+                        evidence = "pixabay_api"
+                    ),
+                    actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
+                )
+            )
+        }
+        return items
+    }
+
+    /**
+     * 3. Pexels (官方 API Key 检索)
+     */
+    private fun fetchPexels(query: String, page: Int): List<UnifiedImage> {
+        val url = "https://api.pexels.com/v1/search?query=${URLEncoder.encode(query, "UTF-8")}&page=$page&per_page=12"
+        val request = Request.Builder()
+            .url(url)
+            .header("Authorization", PEXELS_API_KEY)
+            .header("User-Agent", COMPLIANT_USER_AGENT)
+            .build()
+        val response = client.newCall(request).execute()
+        if (!response.isSuccessful) return emptyList()
+
+        val root = JSONObject(response.body?.string() ?: "")
+        if (!root.has("photos") || root.isNull("photos")) return emptyList()
+        val photos = root.getJSONArray("photos")
+
+        val items = mutableListOf<UnifiedImage>()
+        for (i in 0 until photos.length()) {
+            val obj = photos.getJSONObject(i)
+            val id = obj.optString("id", "")
+            if (id.isBlank()) continue
+            val src = if (obj.has("src")) obj.getJSONObject("src") else continue
+            val medium = src.optString("medium", "")
+            val large = src.optString("large", medium)
+            val original = src.optString("original", large)
+            if (medium.isBlank()) continue
+
+            val width = obj.optInt("width", 1080)
+            val height = obj.optInt("height", 720)
+            val ratio = if (width > 0 && height > 0) (width.toFloat() / height).coerceIn(0.5f, 2.0f) else 1.0f
+            val photographer = obj.optString("photographer", "Pexels Creator")
+            val alt = obj.optString("alt", "Pexels Photo")
+            val pageUrl = obj.optString("url", "https://www.pexels.com/photo/$id")
+
+            items.add(
+                UnifiedImage(
+                    id = "pexels:$id",
+                    source = "pexels",
+                    sourceAssetId = id,
+                    kind = "photo",
+                    title = alt,
+                    altText = alt,
+                    width = width,
+                    height = height,
+                    aspectRatio = ratio,
+                    tags = listOf("Pexels", "高清摄影"),
+                    color = obj.optString("avg_color"),
+                    renditions = Renditions(thumbnail = medium, preview = large, large = original),
+                    creator = Creator(name = photographer, profileUrl = obj.optString("photographer_url")),
+                    landingPageUrl = pageUrl,
+                    license = LicenseInfo(
+                        licenseClass = "custom_commercial_ok",
+                        code = "Pexels License",
+                        version = null,
+                        url = "https://www.pexels.com/license/",
+                        attributionText = "Photo by $photographer on Pexels",
+                        evidence = "pexels_api"
+                    ),
+                    actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
+                )
+            )
+        }
+        return items
+    }
+
+    /**
+     * 4. 大都会艺术博物馆 API (全球直连，50万+世界名作)
      */
     private fun fetchMet(query: String, page: Int): List<UnifiedImage> {
         val searchUrl = "https://collectionapi.metmuseum.org/public/collection/v1/search?q=${URLEncoder.encode(query, "UTF-8")}&hasImages=true"
@@ -311,14 +504,11 @@ object NativeAggregatorEngine {
     }
 
     /**
-     * 2. 维基共享资源 (Wikimedia Commons API - 规范 User-Agent 直连)
+     * 5. 维基共享资源 (Wikimedia Commons API)
      */
     private fun fetchWikimedia(query: String, page: Int): List<UnifiedImage> {
         val url = "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${URLEncoder.encode(query, "UTF-8")}&gsrnamespace=6&gsrlimit=12&prop=imageinfo&iiprop=url|size&format=json"
-        val request = Request.Builder()
-            .url(url)
-            .header("User-Agent", COMPLIANT_USER_AGENT)
-            .build()
+        val request = Request.Builder().url(url).header("User-Agent", COMPLIANT_USER_AGENT).build()
         val response = client.newCall(request).execute()
         if (!response.isSuccessful) return emptyList()
 
@@ -377,7 +567,7 @@ object NativeAggregatorEngine {
     }
 
     /**
-     * 3. 微软必应 4K 官方超清壁纸源 (国内毫秒级极速直连)
+     * 6. 微软必应 4K 官方超清壁纸源 (国内毫秒级极速直连)
      */
     private fun fetchBing(query: String, page: Int): List<UnifiedImage> {
         val idx = (page - 1) * 8
@@ -430,66 +620,10 @@ object NativeAggregatorEngine {
     }
 
     /**
-     * 4. Openverse (WordPress CC0/CC)
-     */
-    private fun fetchOpenverse(query: String, page: Int): List<UnifiedImage> {
-        val url = "https://api.openverse.org/v1/images/?q=${URLEncoder.encode(query, "UTF-8")}&page=$page&page_size=12"
-        val request = Request.Builder().url(url).header("User-Agent", COMPLIANT_USER_AGENT).build()
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) return emptyList()
-
-        val json = JSONObject(response.body?.string() ?: "")
-        if (!json.has("results") || json.isNull("results")) return emptyList()
-        val results = json.getJSONArray("results")
-
-        val items = mutableListOf<UnifiedImage>()
-        for (i in 0 until results.length()) {
-            val obj = results.getJSONObject(i)
-            val id = if (obj.has("id")) obj.getString("id") else continue
-            val imgUrl = if (obj.has("url")) obj.getString("url") else continue
-            val thumb = if (obj.has("thumbnail") && !obj.isNull("thumbnail")) obj.getString("thumbnail") else imgUrl
-            val title = if (obj.has("title") && !obj.isNull("title")) obj.getString("title") else "Untitled"
-            val width = if (obj.has("width") && !obj.isNull("width")) obj.optInt("width") else null
-            val height = if (obj.has("height") && !obj.isNull("height")) obj.optInt("height") else null
-            val ratio = if (width != null && height != null && height > 0) (width.toFloat() / height).coerceIn(0.5f, 2.0f) else 1.0f
-            val licenseCode = if (obj.has("license") && !obj.isNull("license")) obj.getString("license").uppercase() else "CC"
-
-            items.add(
-                UnifiedImage(
-                    id = "openverse:$id",
-                    source = "openverse",
-                    sourceAssetId = id,
-                    kind = "photo",
-                    title = title,
-                    altText = title,
-                    width = width,
-                    height = height,
-                    aspectRatio = ratio,
-                    tags = listOf("Openverse", "CC"),
-                    color = null,
-                    renditions = Renditions(thumbnail = thumb, preview = imgUrl, large = imgUrl),
-                    creator = Creator(name = obj.optString("creator", "Openverse Contributor"), profileUrl = null),
-                    landingPageUrl = obj.optString("foreign_landing_url", "https://openverse.org/image/$id"),
-                    license = LicenseInfo(
-                        licenseClass = if (licenseCode.contains("CC0")) "cc0" else "creative_commons",
-                        code = licenseCode,
-                        version = null,
-                        url = null,
-                        attributionText = obj.optString("attribution", "Openverse"),
-                        evidence = "openverse_api"
-                    ),
-                    actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
-                )
-            )
-        }
-        return items
-    }
-
-    /**
-     * 5. Wallhaven 壁纸社区
+     * 7. Wallhaven 壁纸社区 (配置 API Key)
      */
     private fun fetchWallhaven(query: String, page: Int): List<UnifiedImage> {
-        val url = "https://wallhaven.cc/api/v1/search?q=${URLEncoder.encode(query, "UTF-8")}&page=$page&sorting=toplist"
+        val url = "https://wallhaven.cc/api/v1/search?q=${URLEncoder.encode(query, "UTF-8")}&page=$page&apikey=$WALLHAVEN_API_KEY&sorting=toplist"
         val request = Request.Builder().url(url).header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)").build()
         val response = client.newCall(request).execute()
         if (!response.isSuccessful) return emptyList()
@@ -547,18 +681,23 @@ object NativeAggregatorEngine {
     suspend fun diagnoseNetwork(): Map<String, Long> = withContext(Dispatchers.IO) {
         val targets = mapOf(
             "The Met 博物馆 (公有领域)" to "https://collectionapi.metmuseum.org/public/collection/v1/objects/436535",
-            "Wikimedia 维基共享 (官方图档)" to "https://commons.wikimedia.org/w/api.php?action=query&meta=siteinfo&format=json",
+            "Unsplash 顶级摄影库" to "https://api.unsplash.com/search/photos?query=nature&per_page=1&client_id=$UNSPLASH_ACCESS_KEY",
+            "Pixabay 免版税插画图库" to "https://pixabay.com/api/?key=$PIXABAY_API_KEY&q=nature&per_page=3",
+            "Pexels 官方摄影库" to "https://api.pexels.com/v1/search?query=nature&per_page=1",
             "Bing 4K 官方壁纸 (微软必应)" to "https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1",
-            "Openverse 图库 (WordPress)" to "https://api.openverse.org/v1/images/?page_size=1",
-            "Wallhaven 壁纸社区" to "https://wallhaven.cc/api/v1/search?sorting=toplist"
+            "Wikimedia 维基共享 (官方图档)" to "https://commons.wikimedia.org/w/api.php?action=query&meta=siteinfo&format=json",
+            "Wallhaven 壁纸社区" to "https://wallhaven.cc/api/v1/search?apikey=$WALLHAVEN_API_KEY&sorting=toplist"
         )
 
         val results = mutableMapOf<String, Long>()
         for ((name, targetUrl) in targets) {
             val start = System.currentTimeMillis()
             try {
-                val req = Request.Builder().url(targetUrl).header("User-Agent", COMPLIANT_USER_AGENT).build()
-                val res = client.newCall(req).execute()
+                val reqBuilder = Request.Builder().url(targetUrl).header("User-Agent", COMPLIANT_USER_AGENT)
+                if (name.contains("Pexels")) {
+                    reqBuilder.header("Authorization", PEXELS_API_KEY)
+                }
+                val res = client.newCall(reqBuilder.build()).execute()
                 val duration = System.currentTimeMillis() - start
                 results[name] = if (res.isSuccessful) duration else -1L
             } catch (_: Exception) {
