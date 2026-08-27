@@ -1,26 +1,32 @@
 package com.milepicture.app.utils
 
-import android.app.DownloadManager
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
-import android.widget.Toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
-import java.net.HttpURLConnection
-import java.net.URL
+import java.util.concurrent.TimeUnit
 
+/**
+ * 商业级 RAW / 原生无损超清图片下载引擎
+ * 采用 OkHttp 流式无重编码写入 MediaStore，100% 保持原始相片分辨率、EXIF 与原画细节，绝不二次有损压缩。
+ */
 object ImageDownloadHelper {
 
-    /**
-     * 高清图片下载保存到相册
-     */
+    private val downloadClient = OkHttpClient.Builder()
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .followRedirects(true)
+        .build()
+
     suspend fun downloadImageToGallery(
         context: Context,
         imageUrl: String,
@@ -32,31 +38,57 @@ object ImageDownloadHelper {
         withContext(Dispatchers.IO) {
             onProgress(true)
             try {
-                val cleanTitle = title.replace(Regex("[^a-zA-Z0-9_\\u4e00-\\u9fa5-]"), "_").take(30)
-                val fileName = "MiLePicture_${source}_${cleanTitle}_${System.currentTimeMillis()}.jpg"
+                val cleanTitle = title.replace(Regex("[^a-zA-Z0-9_\\u4e00-\\u9fa5-]"), "_").take(35).ifBlank { "artwork" }
+                
+                val request = Request.Builder()
+                    .url(imageUrl)
+                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) MiLePicture/1.0")
+                    .header("Accept", "image/*,*/*;q=0.8")
+                    .build()
 
-                val url = URL(imageUrl)
-                val connection = url.openConnection() as HttpURLConnection
-                connection.connectTimeout = 15000
-                connection.readTimeout = 20000
-                connection.doInput = true
-                connection.connect()
-
-                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                val response = downloadClient.newCall(request).execute()
+                if (!response.isSuccessful) {
                     withContext(Dispatchers.Main) {
                         onProgress(false)
-                        onResult(false, "下载失败: HTTP ${connection.responseCode}")
+                        onResult(false, "下载失败: HTTP ${response.code}")
                     }
                     return@withContext
                 }
 
-                val inputStream: InputStream = connection.inputStream
+                val body = response.body
+                if (body == null) {
+                    withContext(Dispatchers.Main) {
+                        onProgress(false)
+                        onResult(false, "下载失败: 响应体为空")
+                    }
+                    return@withContext
+                }
+
+                // 智能检测原始图片真实 MIME 类型与后缀 (PNG / JPG / WEBP / TIFF)
+                val contentType = response.header("Content-Type") ?: "image/jpeg"
+                val extension = when {
+                    contentType.contains("png", true) || imageUrl.contains(".png", true) -> "png"
+                    contentType.contains("webp", true) || imageUrl.contains(".webp", true) -> "webp"
+                    contentType.contains("gif", true) || imageUrl.contains(".gif", true) -> "gif"
+                    contentType.contains("tiff", true) || imageUrl.contains(".tif", true) -> "tiff"
+                    else -> "jpg"
+                }
+
+                val mimeType = when (extension) {
+                    "png" -> "image/png"
+                    "webp" -> "image/webp"
+                    "gif" -> "image/gif"
+                    "tiff" -> "image/tiff"
+                    else -> "image/jpeg"
+                }
+
+                val fileName = "MiLePicture_${source}_${cleanTitle}_${System.currentTimeMillis()}.$extension"
+                val inputStream: InputStream = body.byteStream()
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    // Android 10+ 使用 MediaStore API 无需申请危险权限
                     val contentValues = ContentValues().apply {
                         put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                        put(MediaStore.MediaColumns.MIME_TYPE, "image/jpeg")
+                        put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
                         put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/MiLePicture")
                         put(MediaStore.MediaColumns.IS_PENDING, 1)
                     }
@@ -67,6 +99,7 @@ object ImageDownloadHelper {
                     if (imageUri != null) {
                         resolver.openOutputStream(imageUri)?.use { outputStream ->
                             inputStream.copyTo(outputStream)
+                            outputStream.flush()
                         }
                         contentValues.clear()
                         contentValues.put(MediaStore.MediaColumns.IS_PENDING, 0)
@@ -74,7 +107,7 @@ object ImageDownloadHelper {
 
                         withContext(Dispatchers.Main) {
                             onProgress(false)
-                            onResult(true, "✨ 图片已成功保存至系统相册 (Pictures/MiLePicture)")
+                            onResult(true, "✨ 已无损保存至系统相册 (Pictures/MiLePicture)")
                         }
                     } else {
                         withContext(Dispatchers.Main) {
@@ -83,7 +116,6 @@ object ImageDownloadHelper {
                         }
                     }
                 } else {
-                    // Android 9 及以下保存到公共 Pictures 目录
                     val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
                     val appDir = File(picturesDir, "MiLePicture")
                     if (!appDir.exists()) appDir.mkdirs()
@@ -91,11 +123,12 @@ object ImageDownloadHelper {
                     val targetFile = File(appDir, fileName)
                     FileOutputStream(targetFile).use { outputStream ->
                         inputStream.copyTo(outputStream)
+                        outputStream.flush()
                     }
 
                     withContext(Dispatchers.Main) {
                         onProgress(false)
-                        onResult(true, "✨ 图片已成功保存至相册: ${targetFile.name}")
+                        onResult(true, "✨ 已无损保存至相册: ${targetFile.name}")
                     }
                 }
             } catch (e: Exception) {

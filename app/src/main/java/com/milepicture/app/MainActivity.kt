@@ -8,15 +8,18 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.milepicture.app.data.model.UnifiedImage
 import com.milepicture.app.ui.screens.DetailScreen
+import com.milepicture.app.ui.screens.FavoritesScreen
 import com.milepicture.app.ui.screens.HomeScreen
 import com.milepicture.app.ui.screens.ProfileScreen
 import com.milepicture.app.ui.theme.MiLePictureTheme
@@ -33,7 +36,6 @@ class MainActivity : ComponentActivity() {
             MiLePictureTheme {
                 var selectedTab by remember { mutableIntStateOf(0) }
                 var activeDetailImage by remember { mutableStateOf<UnifiedImage?>(null) }
-                var showFilterDialog by remember { mutableStateOf(false) }
                 val isDownloading by viewModel.isDownloading.collectAsState()
 
                 if (activeDetailImage != null) {
@@ -75,11 +77,27 @@ class MainActivity : ComponentActivity() {
                                     onClick = { selectedTab = 1 },
                                     icon = {
                                         Icon(
-                                            if (selectedTab == 1) Icons.Filled.Person else Icons.Outlined.Person,
-                                            contentDescription = "我的"
+                                            if (selectedTab == 1) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                                            contentDescription = "收藏"
                                         )
                                     },
-                                    label = { Text("我的") },
+                                    label = { Text("收藏") },
+                                    colors = NavigationBarItemDefaults.colors(
+                                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                                        indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                                    )
+                                )
+                                NavigationBarItem(
+                                    selected = selectedTab == 2,
+                                    onClick = { selectedTab = 2 },
+                                    icon = {
+                                        Icon(
+                                            if (selectedTab == 2) Icons.Filled.Settings else Icons.Outlined.Settings,
+                                            contentDescription = "设置"
+                                        )
+                                    },
+                                    label = { Text("设置") },
                                     colors = NavigationBarItemDefaults.colors(
                                         selectedIconColor = MaterialTheme.colorScheme.primary,
                                         selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -93,38 +111,16 @@ class MainActivity : ComponentActivity() {
                             0 -> HomeScreen(
                                 viewModel = viewModel,
                                 onImageClick = { activeDetailImage = it },
-                                onFilterClick = { showFilterDialog = true },
                                 modifier = Modifier.padding(innerPadding)
                             )
-                            1 -> ProfileScreen(
+                            1 -> FavoritesScreen(
                                 viewModel = viewModel,
                                 onImageClick = { activeDetailImage = it },
                                 modifier = Modifier.padding(innerPadding)
                             )
-                        }
-
-                        if (showFilterDialog) {
-                            AlertDialog(
-                                onDismissRequest = { showFilterDialog = false },
-                                title = { Text("筛选设置") },
-                                text = {
-                                    val onlyPd by viewModel.onlyPublicDomain.collectAsState()
-                                    Column {
-                                        Text("仅展示公有领域 (CC0 / Public Domain):")
-                                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                                            Checkbox(
-                                                checked = onlyPd,
-                                                onCheckedChange = { viewModel.togglePublicDomainOnly() }
-                                            )
-                                            Text(if (onlyPd) "已开启" else "未开启")
-                                        }
-                                    }
-                                },
-                                confirmButton = {
-                                    TextButton(onClick = { showFilterDialog = false }) {
-                                        Text("确定")
-                                    }
-                                }
+                            2 -> ProfileScreen(
+                                viewModel = viewModel,
+                                modifier = Modifier.padding(innerPadding)
                             )
                         }
                     }

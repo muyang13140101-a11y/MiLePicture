@@ -23,7 +23,6 @@ import com.milepicture.app.ui.viewmodel.MainViewModel
 fun HomeScreen(
     viewModel: MainViewModel,
     onImageClick: (UnifiedImage) -> Unit,
-    onFilterClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val query by viewModel.searchQuery.collectAsState()
@@ -40,8 +39,7 @@ fun HomeScreen(
             onSearch = viewModel::onSearchTriggered,
             tags = tags,
             selectedTagId = selectedTagId,
-            onTagSelect = viewModel::onTagSelect,
-            onFilterClick = onFilterClick
+            onTagSelect = viewModel::onTagSelect
         )
 
         Box(modifier = Modifier.weight(1f)) {

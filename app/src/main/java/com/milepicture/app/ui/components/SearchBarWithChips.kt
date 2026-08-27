@@ -9,7 +9,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -30,7 +29,6 @@ fun SearchBarWithChips(
     tags: List<PopularTag>,
     selectedTagId: String,
     onTagSelect: (PopularTag) -> Unit,
-    onFilterClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
@@ -40,19 +38,18 @@ fun SearchBarWithChips(
             .fillMaxWidth()
             .padding(top = 4.dp, bottom = 4.dp)
     ) {
-        // 搜索输入栏
-        Row(
+        // 现代全宽流线型搜索输入栏（移除鸡肋筛选按钮）
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 16.dp, vertical = 6.dp)
         ) {
             OutlinedTextField(
                 value = query,
                 onValueChange = onQueryChange,
                 placeholder = {
                     Text(
-                        "搜索图片（支持中英文）...",
+                        "搜索 7 大图库作品（支持中英文）...",
                         fontSize = 13.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                     )
@@ -88,30 +85,11 @@ fun SearchBarWithChips(
                     focusedContainerColor = MaterialTheme.colorScheme.surface,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surface
                 ),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.fillMaxWidth()
             )
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            // 筛选按钮
-            FilledTonalIconButton(
-                onClick = onFilterClick,
-                shape = RoundedCornerShape(18.dp),
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    contentColor = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.size(52.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Tune,
-                    contentDescription = "Filter",
-                    modifier = Modifier.size(22.dp)
-                )
-            }
         }
 
-        // 热门主题胶囊栏
+        // 热门主题胶囊栏 (Pill Chips)
         Row(
             modifier = Modifier
                 .fillMaxWidth()

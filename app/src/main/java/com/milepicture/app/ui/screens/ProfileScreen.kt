@@ -17,113 +17,46 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.milepicture.app.data.model.UnifiedImage
-import com.milepicture.app.ui.components.ImageCard
 import com.milepicture.app.ui.components.SourceBadge
 import com.milepicture.app.ui.viewmodel.MainViewModel
 
+/**
+ * 设置与网络健康检测中心
+ */
 @Composable
 fun ProfileScreen(
     viewModel: MainViewModel,
-    onImageClick: (UnifiedImage) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val favorites by viewModel.favorites.collectAsState()
     val sources by viewModel.sources.collectAsState()
     val diagnosticResults by viewModel.diagnosticResults.collectAsState()
     val isDiagnosing by viewModel.isDiagnosing.collectAsState()
 
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
         modifier = modifier.fillMaxSize()
     ) {
-        // 1. 我的收藏标题
         item {
             Text(
-                text = "我的收藏",
+                text = "网络架构与健康诊断",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
-        }
-
-        if (favorites.isEmpty()) {
-            item {
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.BookmarkBorder,
-                            contentDescription = "Empty",
-                            tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "暂无收藏作品",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "在探索页面浏览时点击红心，即可离线保存",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-            }
-        } else {
-            items(favorites.chunked(2)) { rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    rowItems.forEach { img ->
-                        ImageCard(
-                            image = img,
-                            onClick = onImageClick,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    if (rowItems.size == 1) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-        }
-
-        // 分隔线
-        item {
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 4.dp),
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-            )
-        }
-
-        // 2. 商业级「网络健康与引擎架构」卡片
-        item {
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "网络架构与健康检测",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+                text = "MiLePicture 原生端侧多源聚合引擎，0 服务器依赖，自带故障隔离与自动兜底。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
+        // 商业级网络架构与测速卡片
         item {
             Card(
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
                 ),
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -151,7 +84,7 @@ fun ProfileScreen(
                             onClick = { viewModel.runNetworkDiagnostics() },
                             enabled = !isDiagnosing,
                             shape = RoundedCornerShape(12.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
                         ) {
                             if (isDiagnosing) {
                                 CircularProgressIndicator(
@@ -163,29 +96,29 @@ fun ProfileScreen(
                                 Text("测速中...", fontSize = 12.sp)
                             } else {
                                 Icon(Icons.Default.Speed, contentDescription = "Ping", modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("健康测速", fontSize = 12.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("健康测速", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "架构说明: App 原生直连各大官方公开 API 并内置语义翻译与 CC0 兜底池，无需电脑开机，全球 4G/5G 随时可用。",
+                        text = "手机直接向 Unsplash、Pixabay、Pexels、The Met、维基与必应并发拉取素材，无需任何电脑与代理，全国 4G/5G 秒开。",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 11.sp
                     )
 
-                    // 测速结果展示
+                    // 测速列表
                     if (diagnosticResults.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
                         Column(
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
-                                .padding(10.dp)
+                                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
                         ) {
                             diagnosticResults.forEach { (targetName, latency) ->
                                 Row(
@@ -212,11 +145,11 @@ fun ProfileScreen(
             }
         }
 
-        // 3. 图库来源列表
+        // 图库源列表
         item {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "聚合图库来源与协议",
+                text = "已连接的 7 大顶级图库源",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
