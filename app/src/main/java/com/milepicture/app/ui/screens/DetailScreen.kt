@@ -160,6 +160,8 @@ fun DetailScreen(
         )
     }
 
+    var isSharing by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -170,16 +172,36 @@ fun DetailScreen(
                     }
                 },
                 actions = {
-                    // 分享
-                    IconButton(onClick = {
-                        val shareIntent = Intent().apply {
-                            action = Intent.ACTION_SEND
-                            putExtra(Intent.EXTRA_TEXT, "${image.title ?: "作品"}\n${image.landingPageUrl}")
-                            type = "text/plain"
+                    // 全安卓版本真图片格式分享
+                    IconButton(
+                        onClick = {
+                            val shareImgUrl = image.renditions.preview ?: image.renditions.large ?: image.renditions.thumbnail
+                            scope.launch {
+                                com.milepicture.app.utils.ImageShareHelper.shareImage(
+                                    context = context,
+                                    imageUrl = shareImgUrl,
+                                    title = image.title ?: "精选高清大图",
+                                    landingUrl = image.landingPageUrl,
+                                    onProgress = { isSharing = it },
+                                    onResult = { success, err ->
+                                        if (!success && err != null) {
+                                            Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                )
+                            }
+                        },
+                        enabled = !isSharing
+                    ) {
+                        if (isSharing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        } else {
+                            Icon(Icons.Default.Share, contentDescription = "分享图片")
                         }
-                        context.startActivity(Intent.createChooser(shareIntent, "分享作品"))
-                    }) {
-                        Icon(Icons.Default.Share, contentDescription = "分享")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
