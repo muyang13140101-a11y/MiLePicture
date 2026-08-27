@@ -31,6 +31,7 @@ fun ProfileScreen(
     val sources by viewModel.sources.collectAsState()
     val diagnosticResults by viewModel.diagnosticResults.collectAsState()
     val isDiagnosing by viewModel.isDiagnosing.collectAsState()
+    val cacheSizeText by viewModel.cacheSizeText.collectAsState()
 
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
@@ -41,7 +42,7 @@ fun ProfileScreen(
     ) {
         item {
             Text(
-                text = "网络架构与健康诊断",
+                text = "设置与引擎管理",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -51,6 +52,66 @@ fun ProfileScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+
+        // 商业级存储与缓存管理卡片
+        item {
+            Card(
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.CleaningServices,
+                                contentDescription = "Cache",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "存储与缓存管理",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Text(
+                            text = cacheSizeText,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "缓存包含图片缩略图及分享产生的临时文件，定期清理可释放手机存储空间。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    FilledTonalButton(
+                        onClick = { viewModel.clearAppCache() },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.DeleteSweep, contentDescription = "Clear Cache", modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("一键清理缓存并释放空间", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    }
+                }
+            }
         }
 
         // 商业级网络架构与测速卡片
@@ -202,6 +263,29 @@ fun ProfileScreen(
                         modifier = Modifier.size(20.dp)
                     )
                 }
+            }
+        }
+
+        // 关于与版本信息
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "MiLePicture · 米乐图库",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Version 1.0.0 (ARM64 64-bit 商业旗舰版)",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.outline
+                )
             }
         }
 

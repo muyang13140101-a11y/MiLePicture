@@ -30,6 +30,7 @@ fun HomeScreen(
     val query by viewModel.searchQuery.collectAsState()
     val tags by viewModel.tags.collectAsState()
     val selectedTagId by viewModel.selectedTagId.collectAsState()
+    val searchHistory by viewModel.searchHistory.collectAsState()
     val images by viewModel.images.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val isLoadingMore by viewModel.isLoadingMore.collectAsState()
@@ -50,7 +51,7 @@ fun HomeScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .statusBarsPadding() // 完美适配任何屏幕挖孔与刘海
+            .statusBarsPadding()
     ) {
         SearchBarWithChips(
             query = query,
@@ -58,10 +59,13 @@ fun HomeScreen(
             onSearch = viewModel::onSearchTriggered,
             tags = tags,
             selectedTagId = selectedTagId,
-            onTagSelect = viewModel::onTagSelect
+            onTagSelect = viewModel::onTagSelect,
+            searchHistory = searchHistory,
+            onHistoryItemClick = viewModel::onHistoryItemClick,
+            onClearHistory = viewModel::clearSearchHistory
         )
 
-        // 搜索中顶部进度条加载动画
+        // 搜索中顶部流光进度条
         AnimatedVisibility(
             visible = isLoading && images.isNotEmpty(),
             enter = fadeIn() + expandVertically(),

@@ -4,18 +4,24 @@ import android.app.Application
 import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import coil.Coil
 import com.milepicture.app.data.engine.NativeAggregatorEngine
 import com.milepicture.app.data.model.*
 import com.milepicture.app.data.repository.FavoritesRepository
+import com.milepicture.app.data.repository.SearchHistoryRepository
 import com.milepicture.app.utils.ImageDownloadHelper
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val favoritesRepo = FavoritesRepository(application)
+    private val searchHistoryRepo = SearchHistoryRepository(application)
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -25,6 +31,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _tags = MutableStateFlow<List<PopularTag>>(NativeAggregatorEngine.POPULAR_TAGS)
     val tags: StateFlow<List<PopularTag>> = _tags.asStateFlow()
+
+    private val _searchHistory = MutableStateFlow<List<String>>(emptyList())
+    val searchHistory: StateFlow<List<String>> = _searchHistory.asStateFlow()
 
     private val _images = MutableStateFlow<List<UnifiedImage>>(emptyList())
     val images: StateFlow<List<UnifiedImage>> = _images.asStateFlow()
@@ -50,6 +59,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedSourceFilter = MutableStateFlow<String?>(null)
     val selectedSourceFilter: StateFlow<String?> = _selectedSourceFilter.asStateFlow()
 
+    // 缓存大小统计
+    private val _cacheSizeText = MutableStateFlow("计算中...")
+    val cacheSizeText: StateFlow<String> = _cacheSizeText.asStateFlow()
+
     // 网络健康诊断状态
     private val _diagnosticResults = MutableStateFlow<Map<String, Long>>(emptyMap())
     val diagnosticResults: StateFlow<Map<String, Long>> = _diagnosticResults.asStateFlow()
@@ -64,6 +77,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         _favorites.value = favoritesRepo.loadFavorites()
+        _searchHistory.value = searchHistoryRepo.getSearchHistory()
+        refreshCacheSize()
         loadInitialData()
     }
 
@@ -85,7 +100,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onSearchTriggered() {
         val q = _searchQuery.value.ifBlank { "art" }
+        if (_searchQuery.value.isNotBlank()) {
+            searchHistoryRepo.addHistory(_searchQuery.value.trim())
+            _searchHistory.value = searchHistoryRepo.getSearchHistory()
+        }
         search(q, 1)
+    }
+
+    fun onHistoryItemClick(historyQuery: String) {
+        _searchQuery.value = historyQuery
+        onSearchTriggered()
+    }
+
+    fun clearSearchHistory() {
+        searchHistoryRepo.clearHistory()
+        _searchHistory.value = emptyList()
+        Toast.makeText(getApplication(), "已清空搜索历史", Toast.LENGTH_SHORT).show()
     }
 
     fun setSourceFilter(sourceId: String?) {
@@ -93,9 +123,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         onSearchTriggered()
     }
 
-    /**
-     * 无限滚动加载更多数据 (Pagination)
-     */
     fun loadNextPage() {
         if (_isLoading.value || _isLoadingMore.value || isLastPage) return
 
@@ -172,6 +199,60 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _isDiagnosing.value = false
             }
         }
+    }
+
+    fun refreshCacheSize() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val cacheDir = getApplication<Application>().cacheDir
+            val size = getFolderSize(cacheDir)
+            val formatted = when {
+                size > 1024 * 1024 -> String.format("%.1f MB", size / (1024.0 * 1024.0))
+                size > 1024 -> String.format("%.1f KB", size / 1024.0)
+                else -> "$size B"
+            }
+            _cacheSizeText.value = formatted
+        }
+    }
+
+    fun clearAppCache() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // 清除 Coil 内存与磁盘缓存
+                val imageLoader = Coil.imageLoader(getApplication())
+                imageLoader.memoryCache?.clear()
+                imageLoader.diskCache?.clear()
+
+                // 清理临时文件目录
+                val cacheDir = getApplication<Application>().cacheDir
+                deleteDir(cacheDir)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(), "✨ 缓存已全部清理完毕", Toast.LENGTH_SHORT).show()
+                }
+                refreshCacheSize()
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(getApplication(), "清理缓存失败: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun getFolderSize(file: File?): Long {
+        if (file == null || !file.exists()) return 0
+        var size: Long = 0
+        file.listFiles()?.forEach { child ->
+            size += if (child.isDirectory) getFolderSize(child) else child.length()
+        }
+        return size
+    }
+
+    private fun deleteDir(dir: File?): Boolean {
+        if (dir != null && dir.isDirectory) {
+            dir.listFiles()?.forEach { child ->
+                deleteDir(child)
+            }
+        }
+        return dir?.delete() ?: false
     }
 
     private fun search(query: String, page: Int) {

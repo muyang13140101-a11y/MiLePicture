@@ -1,5 +1,6 @@
 package com.milepicture.app.ui.components
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -8,9 +9,11 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +32,9 @@ fun SearchBarWithChips(
     tags: List<PopularTag>,
     selectedTagId: String,
     onTagSelect: (PopularTag) -> Unit,
+    searchHistory: List<String>,
+    onHistoryItemClick: (String) -> Unit,
+    onClearHistory: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val focusManager = LocalFocusManager.current
@@ -38,7 +44,7 @@ fun SearchBarWithChips(
             .fillMaxWidth()
             .padding(top = 4.dp, bottom = 4.dp)
     ) {
-        // 现代全宽流线型搜索输入栏（移除鸡肋筛选按钮）
+        // 现代全宽流线型搜索输入栏
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -87,6 +93,54 @@ fun SearchBarWithChips(
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+
+        // 历史搜索标签栏 (当有历史记录时展示)
+        if (searchHistory.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.History,
+                    contentDescription = "History",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.size(16.dp)
+                )
+
+                searchHistory.take(6).forEach { hist ->
+                    InputChip(
+                        selected = false,
+                        onClick = { onHistoryItemClick(hist) },
+                        label = { Text(hist, fontSize = 11.sp) },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = InputChipDefaults.inputChipColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                        ),
+                        border = InputChipDefaults.inputChipBorder(
+                            borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f),
+                            selected = false,
+                            enabled = true
+                        )
+                    )
+                }
+
+                IconButton(
+                    onClick = onClearHistory,
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DeleteOutline,
+                        contentDescription = "Clear History",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
         }
 
         // 热门主题胶囊栏 (Pill Chips)
