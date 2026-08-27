@@ -2,9 +2,11 @@ package com.milepicture.app.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -19,10 +21,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -31,6 +37,8 @@ import coil.compose.SubcomposeAsyncImage
 import com.milepicture.app.data.model.UnifiedImage
 import com.milepicture.app.ui.components.ShimmerEffect
 import com.milepicture.app.ui.components.SourceBadge
+import com.milepicture.app.utils.WallpaperHelper
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +51,114 @@ fun DetailScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+
     var showInfo by remember { mutableStateOf(false) }
+    var showWallpaperDialog by remember { mutableStateOf(false) }
+    var isSettingWallpaper by remember { mutableStateOf(false) }
+
+    // 手势无级缩放状态
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+
+    if (showWallpaperDialog) {
+        AlertDialog(
+            onDismissRequest = { showWallpaperDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Wallpaper, contentDescription = "Wallpaper", tint = MaterialTheme.colorScheme.primary)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("设为壁纸")
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("请选择要应用的目标屏幕：", style = MaterialTheme.typography.bodyMedium)
+                }
+            },
+            confirmButton = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    FilledTonalButton(
+                        onClick = {
+                            showWallpaperDialog = false
+                            val wallUrl = image.renditions.large ?: image.renditions.preview ?: image.renditions.thumbnail
+                            scope.launch {
+                                WallpaperHelper.setWallpaper(
+                                    context = context,
+                                    imageUrl = wallUrl,
+                                    target = WallpaperHelper.TargetScreen.HOME,
+                                    onProgress = { isSettingWallpaper = it },
+                                    onResult = { _, msg ->
+                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
+                                )
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("设为主屏幕桌面")
+                    }
+
+                    FilledTonalButton(
+                        onClick = {
+                            showWallpaperDialog = false
+                            val wallUrl = image.renditions.large ?: image.renditions.preview ?: image.renditions.thumbnail
+                            scope.launch {
+                                WallpaperHelper.setWallpaper(
+                                    context = context,
+                                    imageUrl = wallUrl,
+                                    target = WallpaperHelper.TargetScreen.LOCK,
+                                    onProgress = { isSettingWallpaper = it },
+                                    onResult = { _, msg ->
+                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
+                                )
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("设为锁屏壁纸")
+                    }
+
+                    Button(
+                        onClick = {
+                            showWallpaperDialog = false
+                            val wallUrl = image.renditions.large ?: image.renditions.preview ?: image.renditions.thumbnail
+                            scope.launch {
+                                WallpaperHelper.setWallpaper(
+                                    context = context,
+                                    imageUrl = wallUrl,
+                                    target = WallpaperHelper.TargetScreen.BOTH,
+                                    onProgress = { isSettingWallpaper = it },
+                                    onResult = { _, msg ->
+                                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
+                                )
+                            }
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("同时设为桌面与锁屏", fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWallpaperDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -62,18 +177,18 @@ fun DetailScreen(
                             putExtra(Intent.EXTRA_TEXT, "${image.title ?: "作品"}\n${image.landingPageUrl}")
                             type = "text/plain"
                         }
-                        context.startActivity(Intent.createChooser(shareIntent, "分享"))
+                        context.startActivity(Intent.createChooser(shareIntent, "分享作品"))
                     }) {
                         Icon(Icons.Default.Share, contentDescription = "分享")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.95f)
-                )
+                ),
+                modifier = Modifier.statusBarsPadding()
             )
         },
         bottomBar = {
-            // 底部固定操作栏
             Surface(
                 shadowElevation = 8.dp,
                 color = MaterialTheme.colorScheme.surface,
@@ -81,14 +196,17 @@ fun DetailScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
                         .navigationBarsPadding(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 收藏按钮
+                    // 1. 收藏按钮
                     OutlinedButton(
-                        onClick = onFavoriteToggle,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onFavoriteToggle()
+                        },
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier.height(48.dp),
                         colors = ButtonDefaults.outlinedButtonColors(
@@ -101,16 +219,39 @@ fun DetailScreen(
                             tint = if (isFavorite) Color(0xFFF43F5E) else MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = if (isFavorite) "已收藏" else "收藏",
                             fontWeight = FontWeight.SemiBold
                         )
                     }
 
-                    // 下载按钮（主操作）
+                    // 2. 设为壁纸按钮
+                    FilledTonalButton(
+                        onClick = { showWallpaperDialog = true },
+                        enabled = !isSettingWallpaper,
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.height(48.dp)
+                    ) {
+                        if (isSettingWallpaper) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        } else {
+                            Icon(Icons.Default.Wallpaper, contentDescription = "设为壁纸", modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("设为壁纸", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+
+                    // 3. RAW 无损保存按钮（主操作）
                     Button(
-                        onClick = onDownload,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onDownload()
+                        },
                         enabled = !isDownloading,
                         shape = RoundedCornerShape(14.dp),
                         modifier = Modifier
@@ -126,12 +267,12 @@ fun DetailScreen(
                                 modifier = Modifier.size(18.dp),
                                 strokeWidth = 2.dp
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("保存中...")
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("无损保存中...")
                         } else {
                             Icon(Icons.Default.Download, contentDescription = "下载", modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("保存至相册", fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("原图保存", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -144,12 +285,22 @@ fun DetailScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            // 沉浸式大图
+            // 沉浸式大图（支持手势捏合双击放大与平移）
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
                     .clip(RoundedCornerShape(20.dp))
+                    .pointerInput(Unit) {
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            scale = (scale * zoom).coerceIn(1f, 4f)
+                            if (scale > 1f) {
+                                offset += pan
+                            } else {
+                                offset = Offset.Zero
+                            }
+                        }
+                    }
             ) {
                 SubcomposeAsyncImage(
                     model = image.renditions.preview ?: image.renditions.large ?: image.renditions.thumbnail,
@@ -166,10 +317,16 @@ fun DetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 280.dp, max = 520.dp)
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offset.x,
+                            translationY = offset.y
+                        )
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             // 标题 + 来源
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -188,7 +345,7 @@ fun DetailScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // 标签
                 if (image.tags.isNotEmpty()) {
@@ -204,10 +361,10 @@ fun DetailScreen(
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
                 }
 
-                // 「作品信息」可展开区块
+                // 「作品信息与版权声明」可折叠面板
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
@@ -234,7 +391,7 @@ fun DetailScreen(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Text(
-                                    text = "作品信息",
+                                    text = "作品信息与授权协议",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 14.sp
                                 )
@@ -285,7 +442,7 @@ fun DetailScreen(
                                                 fontWeight = FontWeight.SemiBold
                                             )
                                             Text(
-                                                text = "创作者",
+                                                text = "原作者 / 摄影师",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -333,14 +490,13 @@ fun DetailScreen(
                                 ) {
                                     Icon(Icons.Default.OpenInBrowser, contentDescription = "打开原站", modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
-                                    Text("访问作品原站", fontSize = 13.sp)
+                                    Text("访问原站查看高清详情", fontSize = 13.sp)
                                 }
                             }
                         }
                     }
                 }
 
-                // 底部间距（给 bottomBar 留空间）
                 Spacer(modifier = Modifier.height(24.dp))
             }
         }
