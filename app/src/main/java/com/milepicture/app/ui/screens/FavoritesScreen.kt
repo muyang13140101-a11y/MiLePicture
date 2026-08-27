@@ -1,5 +1,6 @@
 package com.milepicture.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -46,6 +47,11 @@ fun FavoritesScreen(
 ) {
     val favorites by viewModel.favorites.collectAsState()
     var openedFolderKey by remember { mutableStateOf<String?>(null) }
+
+    // 拦截返回手势/三键返回：若在文件夹内，则返回上一级文件夹列表
+    BackHandler(enabled = openedFolderKey != null) {
+        openedFolderKey = null
+    }
 
     // 文件夹元数据配置
     val folderDefs = listOf(

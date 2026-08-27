@@ -2,6 +2,7 @@ package com.milepicture.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.animation.*
@@ -34,7 +35,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // 开启现代 Android 全面屏沉浸式 Edge-to-Edge (完美自适应挖孔屏、灵动岛、刘海屏与平板)
+        // 开启现代 Android 全面屏沉浸式 Edge-to-Edge (完美自适应全面屏手势、经典三键、双键导航与挖孔屏)
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         setContent {
@@ -42,6 +43,16 @@ class MainActivity : ComponentActivity() {
                 var selectedTab by remember { mutableIntStateOf(0) }
                 var activeDetailImage by remember { mutableStateOf<UnifiedImage?>(null) }
                 val isDownloading by viewModel.isDownloading.collectAsState()
+
+                // 1. 全局返回手势/物理返回拦截 1：若在详情页，返回上一级列表（不退出 App）
+                BackHandler(enabled = activeDetailImage != null) {
+                    activeDetailImage = null
+                }
+
+                // 2. 全局返回手势/物理返回拦截 2：若在「收藏」或「设置」Tab，返回「探索」主界面
+                BackHandler(enabled = activeDetailImage == null && selectedTab != 0) {
+                    selectedTab = 0
+                }
 
                 if (activeDetailImage != null) {
                     val img = activeDetailImage!!
