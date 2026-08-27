@@ -7,9 +7,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    // 默认通过 USB 的 ADB reverse 隧道直连电脑后端（需先执行 adb reverse tcp:3000 tcp:3000）
-    // 备选方案：改为电脑局域网 WiFi IP，如 http://192.168.1.5:3000/（需关闭 Windows 防火墙或添加入站规则）
-    var BASE_URL = "http://127.0.0.1:3000/"
+    // 永久云端无服务器后端（托管于 Cloudflare 全球边缘网络，7x24 小时全球高速可用，完全脱离电脑）
+    var BASE_URL = "https://milepicture-api.muyang13140101.workers.dev/"
 
     private val okHttpClient by lazy {
         OkHttpClient.Builder()
