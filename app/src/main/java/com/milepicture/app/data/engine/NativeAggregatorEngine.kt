@@ -4,16 +4,18 @@ import com.milepicture.app.data.model.*
 import kotlinx.coroutines.*
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
 /**
- * 商业级原生端侧聚合引擎 (Native In-App Aggregator Engine)
- * 使用 Android 原生高性能 JSON 解析与 OkHttp 并发，直接与各大图库公开 API 通信，0 后端依赖。
+ * 商业级原生端侧多源聚合引擎 (Native In-App Multi-Source Engine)
+ * 内置大都会博物馆、维基共享资源、微软必应 4K 官方壁纸、NASA 宇宙天文图库等，
+ * 国内网络全环境毫秒级直连，不依赖中间服务器。
  */
 object NativeAggregatorEngine {
+
+    private const val COMPLIANT_USER_AGENT = "MiLePicture/1.0 (https://github.com/muyang13140101-a11y/MiLePicture; muyang13140101@gmail.com)"
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(6, TimeUnit.SECONDS)
@@ -25,11 +27,10 @@ object NativeAggregatorEngine {
         PopularTag("all", "全部灵感", "art"),
         PopularTag("nature", "自然风景", "nature landscape"),
         PopularTag("met", "大都会艺术", "masterpiece painting"),
-        PopularTag("cyberpunk", "赛博朋克", "cyberpunk neon"),
-        PopularTag("illustration", "插画设计", "illustration artistic"),
+        PopularTag("bing", "必应4K壁纸", "wallpaper"),
+        PopularTag("space", "宇宙星空", "space galaxy universe"),
         PopularTag("flower", "繁花似锦", "flowers blooming"),
-        PopularTag("anime", "动漫二次元", "anime artwork"),
-        PopularTag("minimalist", "极简主义", "minimalist wallpaper"),
+        PopularTag("anime", "插画二次元", "illustration artwork"),
         PopularTag("architecture", "城市建筑", "architecture modern")
     )
 
@@ -45,16 +46,6 @@ object NativeAggregatorEngine {
             licenseHighlights = "CC0 1.0 (开放访问公有领域)"
         ),
         SourceInfo(
-            id = "openverse",
-            name = "Openverse (WordPress CC0/CC)",
-            description = "全球最大的开源公有领域与知识共享多媒体搜索引擎，收录超 7 亿公有许可素材。",
-            enabled = true,
-            releaseState = "active",
-            requiresKey = false,
-            isKeyConfigured = true,
-            licenseHighlights = "CC0 / Public Domain / CC 授权"
-        ),
-        SourceInfo(
             id = "wikimedia",
             name = "Wikimedia Commons (维基共享)",
             description = "维基媒体基金会旗下公有领域与自由授权多媒体档案库，海量艺术与历史图档。",
@@ -63,6 +54,26 @@ object NativeAggregatorEngine {
             requiresKey = false,
             isKeyConfigured = true,
             licenseHighlights = "Public Domain / CC-BY-SA 自由文化协议"
+        ),
+        SourceInfo(
+            id = "bing",
+            name = "Bing 4K 官方超清壁纸 (微软必应)",
+            description = "微软官方每日甄选全球极致风光、地理、动植物 4K 超清摄影。",
+            enabled = true,
+            releaseState = "active",
+            requiresKey = false,
+            isKeyConfigured = true,
+            licenseHighlights = "微软必应每日全球甄选高清素材"
+        ),
+        SourceInfo(
+            id = "openverse",
+            name = "Openverse (WordPress CC0/CC)",
+            description = "全球最大的开源公有领域与知识共享多媒体搜索引擎，收录超 7 亿公有许可素材。",
+            enabled = true,
+            releaseState = "active",
+            requiresKey = false,
+            isKeyConfigured = true,
+            licenseHighlights = "CC0 / Public Domain / CC 授权"
         ),
         SourceInfo(
             id = "wallhaven",
@@ -136,60 +147,31 @@ object NativeAggregatorEngine {
             actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
         ),
         UnifiedImage(
-            id = "met:436528",
-            source = "met",
-            sourceAssetId = "436528",
-            kind = "artwork",
-            title = "鸢尾花 (Irises)",
-            altText = "Vincent van Gogh - Irises flower",
-            width = 1200,
-            height = 940,
-            aspectRatio = 1.28f,
-            tags = listOf("鸢尾花", "花", "油画", "flower", "irises"),
+            id = "bing:today",
+            source = "bing",
+            sourceAssetId = "today",
+            kind = "wallpaper",
+            title = "微软必应每日精选 4K 摄影",
+            altText = "Bing Daily 4K Wallpaper",
+            width = 1920,
+            height = 1080,
+            aspectRatio = 1.77f,
+            tags = listOf("必应", "4K", "风景", "壁纸"),
             color = null,
             renditions = Renditions(
-                thumbnail = "https://images.metmuseum.org/CRDImages/ep/web-large/DP357300.jpg",
-                preview = "https://images.metmuseum.org/CRDImages/ep/original/DP357300.jpg",
-                large = "https://images.metmuseum.org/CRDImages/ep/original/DP357300.jpg"
+                thumbnail = "https://cn.bing.com/th?id=OHR.RedRockCanyon_ZH-CN1234567890_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp",
+                preview = "https://cn.bing.com/th?id=OHR.RedRockCanyon_ZH-CN1234567890_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp",
+                large = "https://cn.bing.com/th?id=OHR.RedRockCanyon_ZH-CN1234567890_1920x1080.jpg&rf=LaDigue_1920x1080.jpg&pid=hp"
             ),
-            creator = Creator(name = "文森特·梵高 (Vincent van Gogh)", profileUrl = null),
-            landingPageUrl = "https://www.metmuseum.org/art/collection/search/436528",
+            creator = Creator(name = "Microsoft Bing", profileUrl = null),
+            landingPageUrl = "https://cn.bing.com",
             license = LicenseInfo(
-                licenseClass = "public_domain",
-                code = "CC0-1.0",
+                licenseClass = "custom",
+                code = "Bing Featured",
                 version = null,
-                url = "https://creativecommons.org/publicdomain/zero/1.0/",
-                attributionText = "The Metropolitan Museum of Art (Open Access)",
-                evidence = "public_domain_flag"
-            ),
-            actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
-        ),
-        UnifiedImage(
-            id = "met:436838",
-            source = "met",
-            sourceAssetId = "436838",
-            kind = "artwork",
-            title = "向日葵 (Sunflowers)",
-            altText = "Vincent van Gogh - Sunflowers",
-            width = 1200,
-            height = 800,
-            aspectRatio = 1.5f,
-            tags = listOf("向日葵", "花", "油画", "sunflowers", "flower"),
-            color = null,
-            renditions = Renditions(
-                thumbnail = "https://images.metmuseum.org/CRDImages/ep/web-large/DP124040.jpg",
-                preview = "https://images.metmuseum.org/CRDImages/ep/original/DP124040.jpg",
-                large = "https://images.metmuseum.org/CRDImages/ep/original/DP124040.jpg"
-            ),
-            creator = Creator(name = "文森特·梵高 (Vincent van Gogh)", profileUrl = null),
-            landingPageUrl = "https://www.metmuseum.org/art/collection/search/436838",
-            license = LicenseInfo(
-                licenseClass = "public_domain",
-                code = "CC0-1.0",
-                version = null,
-                url = "https://creativecommons.org/publicdomain/zero/1.0/",
-                attributionText = "The Metropolitan Museum of Art (Open Access)",
-                evidence = "public_domain_flag"
+                url = null,
+                attributionText = "Photo via Microsoft Bing",
+                evidence = "bing_api"
             ),
             actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
         )
@@ -203,7 +185,7 @@ object NativeAggregatorEngine {
         val enQuery = LocalTranslator.translate(rawQuery)
 
         val activeSources = if (sourceFilter.isNullOrBlank()) {
-            listOf("met", "openverse", "wikimedia", "wallhaven")
+            listOf("met", "wikimedia", "bing", "openverse", "wallhaven")
         } else {
             listOf(sourceFilter)
         }
@@ -213,8 +195,9 @@ object NativeAggregatorEngine {
                 try {
                     when (src) {
                         "met" -> fetchMet(enQuery, page)
-                        "openverse" -> fetchOpenverse(enQuery, page)
                         "wikimedia" -> fetchWikimedia(enQuery, page)
+                        "bing" -> fetchBing(enQuery, page)
+                        "openverse" -> fetchOpenverse(enQuery, page)
                         "wallhaven" -> fetchWallhaven(enQuery, page)
                         else -> emptyList()
                     }
@@ -251,9 +234,12 @@ object NativeAggregatorEngine {
         SearchResponse(items = combined, sources = statusList, page = page)
     }
 
+    /**
+     * 1. 大都会艺术博物馆 API (全球直连，50万+世界名作)
+     */
     private fun fetchMet(query: String, page: Int): List<UnifiedImage> {
         val searchUrl = "https://collectionapi.metmuseum.org/public/collection/v1/search?q=${URLEncoder.encode(query, "UTF-8")}&hasImages=true"
-        val request = Request.Builder().url(searchUrl).header("User-Agent", "MiLePicture/1.0").build()
+        val request = Request.Builder().url(searchUrl).header("User-Agent", COMPLIANT_USER_AGENT).build()
         val response = client.newCall(request).execute()
         if (!response.isSuccessful) return emptyList()
 
@@ -272,7 +258,7 @@ object NativeAggregatorEngine {
             val objId = objectIDsArray.getInt(i)
             try {
                 val detailUrl = "https://collectionapi.metmuseum.org/public/collection/v1/objects/$objId"
-                val dReq = Request.Builder().url(detailUrl).header("User-Agent", "MiLePicture/1.0").build()
+                val dReq = Request.Builder().url(detailUrl).header("User-Agent", COMPLIANT_USER_AGENT).build()
                 val dRes = client.newCall(dReq).execute()
                 if (dRes.isSuccessful) {
                     val dJson = JSONObject(dRes.body?.string() ?: "")
@@ -324,65 +310,15 @@ object NativeAggregatorEngine {
         return items
     }
 
-    private fun fetchOpenverse(query: String, page: Int): List<UnifiedImage> {
-        val url = "https://api.openverse.org/v1/images/?q=${URLEncoder.encode(query, "UTF-8")}&page=$page&page_size=18"
-        val request = Request.Builder().url(url).header("User-Agent", "MiLePicture/1.0").build()
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) return emptyList()
-
-        val json = JSONObject(response.body?.string() ?: "")
-        if (!json.has("results") || json.isNull("results")) return emptyList()
-        val results = json.getJSONArray("results")
-
-        val items = mutableListOf<UnifiedImage>()
-        for (i in 0 until results.length()) {
-            val obj = results.getJSONObject(i)
-            val id = if (obj.has("id")) obj.getString("id") else continue
-            val imgUrl = if (obj.has("url")) obj.getString("url") else continue
-            val thumb = if (obj.has("thumbnail") && !obj.isNull("thumbnail")) obj.getString("thumbnail") else imgUrl
-            val title = if (obj.has("title") && !obj.isNull("title")) obj.getString("title") else "Untitled"
-            val width = if (obj.has("width") && !obj.isNull("width")) obj.optInt("width") else null
-            val height = if (obj.has("height") && !obj.isNull("height")) obj.optInt("height") else null
-            val ratio = if (width != null && height != null && height > 0) (width.toFloat() / height).coerceIn(0.5f, 2.0f) else 1.0f
-            val licenseCode = if (obj.has("license") && !obj.isNull("license")) obj.getString("license").uppercase() else "CC"
-            val creator = if (obj.has("creator") && !obj.isNull("creator")) obj.getString("creator") else "Openverse Contributor"
-            val landingUrl = if (obj.has("foreign_landing_url") && !obj.isNull("foreign_landing_url")) obj.getString("foreign_landing_url") else "https://openverse.org/image/$id"
-            val attribution = if (obj.has("attribution") && !obj.isNull("attribution")) obj.getString("attribution") else "Openverse"
-
-            items.add(
-                UnifiedImage(
-                    id = "openverse:$id",
-                    source = "openverse",
-                    sourceAssetId = id,
-                    kind = "photo",
-                    title = title,
-                    altText = title,
-                    width = width,
-                    height = height,
-                    aspectRatio = ratio,
-                    tags = listOf("Openverse", "CC"),
-                    color = null,
-                    renditions = Renditions(thumbnail = thumb, preview = imgUrl, large = imgUrl),
-                    creator = Creator(name = creator, profileUrl = null),
-                    landingPageUrl = landingUrl,
-                    license = LicenseInfo(
-                        licenseClass = if (licenseCode.contains("CC0")) "cc0" else "creative_commons",
-                        code = licenseCode,
-                        version = null,
-                        url = null,
-                        attributionText = attribution,
-                        evidence = "openverse_api"
-                    ),
-                    actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
-                )
-            )
-        }
-        return items
-    }
-
+    /**
+     * 2. 维基共享资源 (Wikimedia Commons API - 规范 User-Agent 直连)
+     */
     private fun fetchWikimedia(query: String, page: Int): List<UnifiedImage> {
-        val url = "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${URLEncoder.encode(query, "UTF-8")}&gsrnamespace=6&gsrlimit=14&prop=imageinfo&iiprop=url|size&format=json"
-        val request = Request.Builder().url(url).header("User-Agent", "MiLePicture/1.0 (Mobile App)").build()
+        val url = "https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${URLEncoder.encode(query, "UTF-8")}&gsrnamespace=6&gsrlimit=12&prop=imageinfo&iiprop=url|size&format=json"
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", COMPLIANT_USER_AGENT)
+            .build()
         val response = client.newCall(request).execute()
         if (!response.isSuccessful) return emptyList()
 
@@ -440,9 +376,121 @@ object NativeAggregatorEngine {
         return items
     }
 
+    /**
+     * 3. 微软必应 4K 官方超清壁纸源 (国内毫秒级极速直连)
+     */
+    private fun fetchBing(query: String, page: Int): List<UnifiedImage> {
+        val idx = (page - 1) * 8
+        val url = "https://cn.bing.com/HPImageArchive.aspx?format=js&idx=$idx&n=8"
+        val request = Request.Builder().url(url).header("User-Agent", COMPLIANT_USER_AGENT).build()
+        val response = client.newCall(request).execute()
+        if (!response.isSuccessful) return emptyList()
+
+        val root = JSONObject(response.body?.string() ?: "")
+        if (!root.has("images") || root.isNull("images")) return emptyList()
+        val imagesArray = root.getJSONArray("images")
+
+        val items = mutableListOf<UnifiedImage>()
+        for (i in 0 until imagesArray.length()) {
+            val imgObj = imagesArray.getJSONObject(i)
+            val rawUrl = if (imgObj.has("url")) imgObj.getString("url") else continue
+            val fullUrl = if (rawUrl.startsWith("http")) rawUrl else "https://cn.bing.com$rawUrl"
+            val title = if (imgObj.has("copyright")) imgObj.getString("copyright") else "Bing 4K Wallpaper"
+            val date = if (imgObj.has("enddate")) imgObj.getString("enddate") else "today"
+
+            items.add(
+                UnifiedImage(
+                    id = "bing:$date$i",
+                    source = "bing",
+                    sourceAssetId = "$date$i",
+                    kind = "wallpaper",
+                    title = title,
+                    altText = title,
+                    width = 1920,
+                    height = 1080,
+                    aspectRatio = 1.77f,
+                    tags = listOf("必应4K", "风景", "精选摄影"),
+                    color = null,
+                    renditions = Renditions(thumbnail = fullUrl, preview = fullUrl, large = fullUrl),
+                    creator = Creator(name = "Microsoft Bing 摄影师", profileUrl = null),
+                    landingPageUrl = "https://cn.bing.com",
+                    license = LicenseInfo(
+                        licenseClass = "custom",
+                        code = "Bing Featured",
+                        version = null,
+                        url = null,
+                        attributionText = "Photo via Microsoft Bing",
+                        evidence = "bing_api"
+                    ),
+                    actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
+                )
+            )
+        }
+        return items
+    }
+
+    /**
+     * 4. Openverse (WordPress CC0/CC)
+     */
+    private fun fetchOpenverse(query: String, page: Int): List<UnifiedImage> {
+        val url = "https://api.openverse.org/v1/images/?q=${URLEncoder.encode(query, "UTF-8")}&page=$page&page_size=12"
+        val request = Request.Builder().url(url).header("User-Agent", COMPLIANT_USER_AGENT).build()
+        val response = client.newCall(request).execute()
+        if (!response.isSuccessful) return emptyList()
+
+        val json = JSONObject(response.body?.string() ?: "")
+        if (!json.has("results") || json.isNull("results")) return emptyList()
+        val results = json.getJSONArray("results")
+
+        val items = mutableListOf<UnifiedImage>()
+        for (i in 0 until results.length()) {
+            val obj = results.getJSONObject(i)
+            val id = if (obj.has("id")) obj.getString("id") else continue
+            val imgUrl = if (obj.has("url")) obj.getString("url") else continue
+            val thumb = if (obj.has("thumbnail") && !obj.isNull("thumbnail")) obj.getString("thumbnail") else imgUrl
+            val title = if (obj.has("title") && !obj.isNull("title")) obj.getString("title") else "Untitled"
+            val width = if (obj.has("width") && !obj.isNull("width")) obj.optInt("width") else null
+            val height = if (obj.has("height") && !obj.isNull("height")) obj.optInt("height") else null
+            val ratio = if (width != null && height != null && height > 0) (width.toFloat() / height).coerceIn(0.5f, 2.0f) else 1.0f
+            val licenseCode = if (obj.has("license") && !obj.isNull("license")) obj.getString("license").uppercase() else "CC"
+
+            items.add(
+                UnifiedImage(
+                    id = "openverse:$id",
+                    source = "openverse",
+                    sourceAssetId = id,
+                    kind = "photo",
+                    title = title,
+                    altText = title,
+                    width = width,
+                    height = height,
+                    aspectRatio = ratio,
+                    tags = listOf("Openverse", "CC"),
+                    color = null,
+                    renditions = Renditions(thumbnail = thumb, preview = imgUrl, large = imgUrl),
+                    creator = Creator(name = obj.optString("creator", "Openverse Contributor"), profileUrl = null),
+                    landingPageUrl = obj.optString("foreign_landing_url", "https://openverse.org/image/$id"),
+                    license = LicenseInfo(
+                        licenseClass = if (licenseCode.contains("CC0")) "cc0" else "creative_commons",
+                        code = licenseCode,
+                        version = null,
+                        url = null,
+                        attributionText = obj.optString("attribution", "Openverse"),
+                        evidence = "openverse_api"
+                    ),
+                    actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
+                )
+            )
+        }
+        return items
+    }
+
+    /**
+     * 5. Wallhaven 壁纸社区
+     */
     private fun fetchWallhaven(query: String, page: Int): List<UnifiedImage> {
         val url = "https://wallhaven.cc/api/v1/search?q=${URLEncoder.encode(query, "UTF-8")}&page=$page&sorting=toplist"
-        val request = Request.Builder().url(url).header("User-Agent", "MiLePicture/1.0").build()
+        val request = Request.Builder().url(url).header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)").build()
         val response = client.newCall(request).execute()
         if (!response.isSuccessful) return emptyList()
 
@@ -461,7 +509,6 @@ object NativeAggregatorEngine {
             val dimX = if (obj.has("dimension_x")) obj.optInt("dimension_x") else null
             val dimY = if (obj.has("dimension_y")) obj.optInt("dimension_y") else null
             val ratio = if (dimX != null && dimY != null && dimY > 0) (dimX.toFloat() / dimY).coerceIn(0.5f, 2.0f) else 1.77f
-            val landingUrl = if (obj.has("url")) obj.getString("url") else "https://wallhaven.cc/w/$id"
 
             items.add(
                 UnifiedImage(
@@ -478,7 +525,7 @@ object NativeAggregatorEngine {
                     color = null,
                     renditions = Renditions(thumbnail = thumb, preview = preview, large = imgPath),
                     creator = Creator(name = "Wallhaven Member", profileUrl = null),
-                    landingPageUrl = landingUrl,
+                    landingPageUrl = obj.optString("url", "https://wallhaven.cc/w/$id"),
                     license = LicenseInfo(
                         licenseClass = "custom",
                         code = "Wallhaven License",
@@ -494,19 +541,23 @@ object NativeAggregatorEngine {
         return items
     }
 
+    /**
+     * 网络健康诊断测试 (/health 实时测速)
+     */
     suspend fun diagnoseNetwork(): Map<String, Long> = withContext(Dispatchers.IO) {
         val targets = mapOf(
             "The Met 博物馆 (公有领域)" to "https://collectionapi.metmuseum.org/public/collection/v1/objects/436535",
+            "Wikimedia 维基共享 (官方图档)" to "https://commons.wikimedia.org/w/api.php?action=query&meta=siteinfo&format=json",
+            "Bing 4K 官方壁纸 (微软必应)" to "https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1",
             "Openverse 图库 (WordPress)" to "https://api.openverse.org/v1/images/?page_size=1",
-            "Wikimedia 维基共享" to "https://commons.wikimedia.org/w/api.php?action=query&meta=siteinfo&format=json",
-            "Wallhaven 壁纸库" to "https://wallhaven.cc/api/v1/search?sorting=toplist"
+            "Wallhaven 壁纸社区" to "https://wallhaven.cc/api/v1/search?sorting=toplist"
         )
 
         val results = mutableMapOf<String, Long>()
         for ((name, targetUrl) in targets) {
             val start = System.currentTimeMillis()
             try {
-                val req = Request.Builder().url(targetUrl).header("User-Agent", "MiLePicture/1.0").build()
+                val req = Request.Builder().url(targetUrl).header("User-Agent", COMPLIANT_USER_AGENT).build()
                 val res = client.newCall(req).execute()
                 val duration = System.currentTimeMillis() - start
                 results[name] = if (res.isSuccessful) duration else -1L
