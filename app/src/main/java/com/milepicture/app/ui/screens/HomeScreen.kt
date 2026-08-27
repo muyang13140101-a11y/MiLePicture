@@ -1,9 +1,11 @@
 package com.milepicture.app.ui.screens
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
@@ -30,9 +32,26 @@ fun HomeScreen(
     val selectedTagId by viewModel.selectedTagId.collectAsState()
     val images by viewModel.images.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
 
-    Column(modifier = modifier.fillMaxSize()) {
+    val gridState = rememberLazyStaggeredGridState()
+
+    // 监听滑动到底部触发无限加载 (Pagination)
+    LaunchedEffect(gridState) {
+        snapshotFlow { gridState.layoutInfo.visibleItemsInfo.lastOrNull()?.index }
+            .collect { lastVisibleIndex ->
+                if (lastVisibleIndex != null && lastVisibleIndex >= images.size - 4 && images.isNotEmpty()) {
+                    viewModel.loadNextPage()
+                }
+            }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .statusBarsPadding() // 完美适配任何屏幕挖孔与刘海
+    ) {
         SearchBarWithChips(
             query = query,
             onQueryChange = viewModel::onQueryChange,
@@ -42,12 +61,29 @@ fun HomeScreen(
             onTagSelect = viewModel::onTagSelect
         )
 
+        // 搜索中顶部进度条加载动画
+        AnimatedVisibility(
+            visible = isLoading && images.isNotEmpty(),
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            LinearProgressIndicator(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
+            )
+        }
+
         Box(modifier = Modifier.weight(1f)) {
             when {
+                // 首屏全量加载中 → 骨架屏流光动画
                 isLoading && images.isEmpty() -> {
                     ShimmerGrid()
                 }
 
+                // 网络异常 → 优雅重试
                 errorMessage != null && images.isEmpty() -> {
                     Column(
                         modifier = Modifier
@@ -80,8 +116,10 @@ fun HomeScreen(
                     }
                 }
 
+                // 正常瀑布流无限滚动
                 else -> {
                     LazyVerticalStaggeredGrid(
+                        state = gridState,
                         columns = StaggeredGridCells.Fixed(2),
                         contentPadding = PaddingValues(12.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -93,6 +131,31 @@ fun HomeScreen(
                                 image = img,
                                 onClick = onImageClick
                             )
+                        }
+
+                        // 底部加载更多转圈圈动画
+                        if (isLoadingMore) {
+                            item(span = androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan.FullLine) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 16.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.5.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Text(
+                                        text = "正在拉取更多高清大图...",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
                     }
                 }

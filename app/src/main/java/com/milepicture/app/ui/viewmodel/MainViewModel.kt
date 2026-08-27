@@ -32,6 +32,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
     private val _isDownloading = MutableStateFlow(false)
     val isDownloading: StateFlow<Boolean> = _isDownloading.asStateFlow()
 
@@ -47,15 +50,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedSourceFilter = MutableStateFlow<String?>(null)
     val selectedSourceFilter: StateFlow<String?> = _selectedSourceFilter.asStateFlow()
 
-    private val _onlyPublicDomain = MutableStateFlow(false)
-    val onlyPublicDomain: StateFlow<Boolean> = _onlyPublicDomain.asStateFlow()
-
-    // 网络健康诊断状态 (源名称 -> 延迟毫秒数, -1 表示超时)
+    // 网络健康诊断状态
     private val _diagnosticResults = MutableStateFlow<Map<String, Long>>(emptyMap())
     val diagnosticResults: StateFlow<Map<String, Long>> = _diagnosticResults.asStateFlow()
 
     private val _isDiagnosing = MutableStateFlow(false)
     val isDiagnosing: StateFlow<Boolean> = _isDiagnosing.asStateFlow()
+
+    // 分页状态管理
+    private var currentPage = 1
+    private var isLastPage = false
+    private var currentActiveQuery = "art"
 
     init {
         _favorites.value = favoritesRepo.loadFavorites()
@@ -88,9 +93,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         onSearchTriggered()
     }
 
-    fun togglePublicDomainOnly() {
-        _onlyPublicDomain.value = !_onlyPublicDomain.value
-        onSearchTriggered()
+    /**
+     * 无限滚动加载更多数据 (Pagination)
+     */
+    fun loadNextPage() {
+        if (_isLoading.value || _isLoadingMore.value || isLastPage) return
+
+        viewModelScope.launch {
+            _isLoadingMore.value = true
+            try {
+                val nextPage = currentPage + 1
+                val response = NativeAggregatorEngine.search(
+                    rawQuery = currentActiveQuery,
+                    page = nextPage,
+                    sourceFilter = _selectedSourceFilter.value
+                )
+
+                val newItems = response.items
+                if (newItems.isEmpty()) {
+                    isLastPage = true
+                } else {
+                    currentPage = nextPage
+                    val existingIds = _images.value.map { it.id }.toSet()
+                    val uniqueNew = newItems.filter { it.id !in existingIds }
+                    _images.value = _images.value + uniqueNew
+                }
+            } catch (_: Exception) {
+            } finally {
+                _isLoadingMore.value = false
+            }
+        }
     }
 
     fun toggleFavorite(image: UnifiedImage) {
@@ -101,7 +133,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             Toast.makeText(getApplication(), "已取消收藏", Toast.LENGTH_SHORT).show()
         } else {
             current.add(0, image)
-            Toast.makeText(getApplication(), "❤️ 已添加至收藏", Toast.LENGTH_SHORT).show()
+            Toast.makeText(getApplication(), "❤️ 已收藏至 ${image.source.uppercase()} 文件夹", Toast.LENGTH_SHORT).show()
         }
         _favorites.value = current
         favoritesRepo.saveFavorites(current)
@@ -127,9 +159,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * 运行网络健康检测 (/health 诊断)
-     */
     fun runNetworkDiagnostics() {
         viewModelScope.launch {
             _isDiagnosing.value = true
@@ -149,20 +178,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
+            currentPage = 1
+            isLastPage = false
+            currentActiveQuery = query
+
             try {
-                // 原生端侧直连聚合搜索，0 中间服务器依赖
                 val response = NativeAggregatorEngine.search(
                     rawQuery = query,
                     page = page,
                     sourceFilter = _selectedSourceFilter.value
                 )
-
-                var items = response.items
-                if (_onlyPublicDomain.value) {
-                    items = items.filter { it.license.licenseClass == "public_domain" || it.license.licenseClass == "cc0" }
-                }
-
-                _images.value = items
+                _images.value = response.items
             } catch (e: Exception) {
                 _errorMessage.value = "搜索异常: ${e.localizedMessage}"
             } finally {

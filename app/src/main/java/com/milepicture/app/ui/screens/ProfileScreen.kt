@@ -35,7 +35,9 @@ fun ProfileScreen(
     LazyColumn(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
-        modifier = modifier.fillMaxSize()
+        modifier = modifier
+            .fillMaxSize()
+            .statusBarsPadding()
     ) {
         item {
             Text(

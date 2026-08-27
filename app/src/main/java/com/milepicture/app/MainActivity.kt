@@ -17,6 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import com.milepicture.app.data.model.UnifiedImage
 import com.milepicture.app.ui.screens.DetailScreen
 import com.milepicture.app.ui.screens.FavoritesScreen
@@ -32,6 +33,10 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // 开启现代 Android 全面屏沉浸式 Edge-to-Edge (完美自适应挖孔屏、灵动岛、刘海屏与平板)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
         setContent {
             MiLePictureTheme {
                 var selectedTab by remember { mutableIntStateOf(0) }
@@ -54,7 +59,8 @@ class MainActivity : ComponentActivity() {
                         bottomBar = {
                             NavigationBar(
                                 containerColor = MaterialTheme.colorScheme.surface,
-                                tonalElevation = 0.dp
+                                tonalElevation = 0.dp,
+                                modifier = Modifier.navigationBarsPadding()
                             ) {
                                 NavigationBarItem(
                                     selected = selectedTab == 0,
@@ -111,16 +117,16 @@ class MainActivity : ComponentActivity() {
                             0 -> HomeScreen(
                                 viewModel = viewModel,
                                 onImageClick = { activeDetailImage = it },
-                                modifier = Modifier.padding(innerPadding)
+                                modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
                             )
                             1 -> FavoritesScreen(
                                 viewModel = viewModel,
                                 onImageClick = { activeDetailImage = it },
-                                modifier = Modifier.padding(innerPadding)
+                                modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
                             )
                             2 -> ProfileScreen(
                                 viewModel = viewModel,
-                                modifier = Modifier.padding(innerPadding)
+                                modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
                             )
                         }
                     }
