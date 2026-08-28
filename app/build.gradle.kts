@@ -75,6 +75,9 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
+    // 腾讯 MMKV (C++ 原生 mmap 键值存储引擎，对齐微信/小红书/抖音 64 位 ARM64-v8a 架构)
+    implementation("com.tencent:mmkv:1.3.9")
+
     // --- Testing Dependencies ---
     // Local Unit Tests
     testImplementation("junit:junit:4.13.2")

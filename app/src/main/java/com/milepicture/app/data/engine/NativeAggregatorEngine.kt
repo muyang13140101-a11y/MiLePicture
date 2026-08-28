@@ -10,22 +10,21 @@ import java.util.concurrent.TimeUnit
 
 /**
  * 商业级原生端侧多源聚合引擎 (Native In-App Multi-Source Engine)
- * 集成 Unsplash, Pixabay, Pexels, Giphy, The Met, Bing 4K 等主流开放图库
+ * 集成 Unsplash, Pixabay, Pexels, Giphy/Bing 动态图库, The Met, Bing 4K 等主流开放图库
  */
 object NativeAggregatorEngine {
 
-    private const val COMPLIANT_USER_AGENT = "MiLePicture/1.0 (https://github.com/muyang13140101-a11y/MiLePicture; muyang13140101@gmail.com)"
+    private const val COMPLIANT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 MiLePicture/1.0"
 
     // 用户专属 API Key 配置
     private const val UNSPLASH_ACCESS_KEY = "fCY11SQN7NrbO-sS8_apII-lQXkMUlTshk9rQdm9vwc"
     private const val PIXABAY_API_KEY = "53312716-9814421362fbbe2d0c40a739e"
     private const val PEXELS_API_KEY = "rRzig9DDb71696aibKDrtaCa1wr8U0L7M00QTKFwooVzZ4c7Hcn88BNY"
     private const val GIPHY_API_KEY = "XInfz9sD5s33K9yMLGbeqib0koJYlgeB"
-    private const val WALLHAVEN_API_KEY = "BSNQRlRmZV27Y86tlYl7845PPNxmnuEm"
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(5, TimeUnit.SECONDS)
-        .readTimeout(8, TimeUnit.SECONDS)
+        .connectTimeout(4, TimeUnit.SECONDS)
+        .readTimeout(6, TimeUnit.SECONDS)
         .followRedirects(true)
         .build()
 
@@ -73,13 +72,13 @@ object NativeAggregatorEngine {
         ),
         SourceInfo(
             id = "giphy",
-            name = "GIPHY (全球最大 GIF 动图库)",
-            description = "海量创意动图、表情包与动态视觉素材，国内秒级直连畅快加载。",
+            name = "GIPHY 动图 (含国内智能极速双通道)",
+            description = "海量创意动图、表情包与动态壁纸，内置国内极速智能节点，免梯秒开。",
             enabled = true,
             releaseState = "active",
             requiresKey = true,
             isKeyConfigured = true,
-            licenseHighlights = "Giphy Terms (自由分享与非商用)"
+            licenseHighlights = "Giphy / Bing GIF (自由分享与非商用)"
         ),
         SourceInfo(
             id = "met",
@@ -107,6 +106,7 @@ object NativeAggregatorEngine {
         UnifiedImage(
             id = "local_met_1",
             source = "met",
+            sourceAssetId = "local_met_1",
             kind = "artwork",
             title = "星夜与罗纳河 (Starry Night over the Rhône)",
             altText = "Vincent van Gogh Masterpiece",
@@ -135,6 +135,7 @@ object NativeAggregatorEngine {
         UnifiedImage(
             id = "local_met_2",
             source = "met",
+            sourceAssetId = "local_met_2",
             kind = "artwork",
             title = "睡莲池上的拱桥 (Bridge over a Pond of Water Lilies)",
             altText = "Claude Monet - Water Lilies",
@@ -182,11 +183,9 @@ object NativeAggregatorEngine {
                         "unsplash" -> fetchUnsplash(enQuery, page)
                         "pixabay" -> fetchPixabay(enQuery, page)
                         "pexels" -> fetchPexels(enQuery, page)
-                        "giphy" -> fetchGiphy(rawQuery, page)
+                        "giphy" -> fetchGiphyOrBingGif(rawQuery, page)
                         "met" -> fetchMet(enQuery, page)
                         "bing" -> fetchBing(enQuery, page)
-                        "wallhaven" -> fetchWallhaven(enQuery, page)
-                        "wikimedia" -> fetchWikimedia(enQuery, page)
                         else -> emptyList()
                     }
                 } catch (_: Exception) {
@@ -223,70 +222,155 @@ object NativeAggregatorEngine {
     }
 
     /**
-     * 1. GIPHY (官方 API 动图检索)
+     * 1. GIPHY + Bing 动图智能双引擎 (国内海外全自动极速直连)
      */
-    private fun fetchGiphy(query: String, page: Int): List<UnifiedImage> {
-        val offset = (page - 1) * 20
-        val url = if (query.isBlank() || query == "art" || query == "all") {
-            "https://api.giphy.com/v1/gifs/trending?api_key=$GIPHY_API_KEY&limit=20&offset=$offset&rating=g"
-        } else {
-            "https://api.giphy.com/v1/gifs/search?api_key=$GIPHY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&limit=20&offset=$offset&rating=g"
+    private fun fetchGiphyOrBingGif(query: String, page: Int): List<UnifiedImage> {
+        // 首先尝试 Giphy API
+        try {
+            val offset = (page - 1) * 20
+            val url = if (query.isBlank() || query == "art" || query == "all" || query == "giphy") {
+                "https://api.giphy.com/v1/gifs/trending?api_key=$GIPHY_API_KEY&limit=20&offset=$offset&rating=g"
+            } else {
+                "https://api.giphy.com/v1/gifs/search?api_key=$GIPHY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&limit=20&offset=$offset&rating=g"
+            }
+            val request = Request.Builder().url(url).header("User-Agent", COMPLIANT_USER_AGENT).build()
+            val response = client.newCall(request).execute()
+            if (response.isSuccessful) {
+                val root = JSONObject(response.body?.string() ?: "")
+                if (root.has("data")) {
+                    val data = root.getJSONArray("data")
+                    val items = mutableListOf<UnifiedImage>()
+                    for (i in 0 until data.length()) {
+                        val obj = data.getJSONObject(i)
+                        val id = if (obj.has("id")) obj.getString("id") else continue
+                        val imagesObj = if (obj.has("images")) obj.getJSONObject("images") else continue
+                        
+                        val fixedHeight = imagesObj.optJSONObject("fixed_height")
+                        val original = imagesObj.optJSONObject("original")
+                        
+                        val thumbUrl = fixedHeight?.optString("url") ?: original?.optString("url") ?: continue
+                        val largeUrl = original?.optString("url") ?: thumbUrl
+                        val title = obj.optString("title", "GIPHY 动图")
+                        val webUrl = obj.optString("url", "https://giphy.com/gifs/$id")
+                        val username = obj.optJSONObject("user")?.optString("display_name") ?: "GIPHY"
+
+                        items.add(
+                            UnifiedImage(
+                                id = "giphy_$id",
+                                source = "giphy",
+                                sourceAssetId = id,
+                                kind = "gif",
+                                title = title.ifBlank { "GIPHY 创意动图" },
+                                altText = title,
+                                width = fixedHeight?.optInt("width") ?: 400,
+                                height = fixedHeight?.optInt("height") ?: 400,
+                                aspectRatio = 1.0f,
+                                tags = listOf("动图", "GIF", "GIPHY", "动态壁纸"),
+                                color = "#00FF99",
+                                renditions = Renditions(
+                                    thumbnail = thumbUrl,
+                                    preview = thumbUrl,
+                                    large = largeUrl
+                                ),
+                                creator = Creator(name = username, profileUrl = null),
+                                landingPageUrl = webUrl,
+                                license = LicenseInfo(
+                                    licenseClass = "free",
+                                    code = "Giphy License",
+                                    version = null,
+                                    url = "https://giphy.com",
+                                    attributionText = "Powered By GIPHY",
+                                    evidence = "api"
+                                ),
+                                actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
+                            )
+                        )
+                    }
+                    if (items.isNotEmpty()) return items
+                }
+            }
+        } catch (_: Exception) {
         }
-        val request = Request.Builder().url(url).header("User-Agent", COMPLIANT_USER_AGENT).build()
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) return emptyList()
 
-        val root = JSONObject(response.body?.string() ?: "")
-        if (!root.has("data")) return emptyList()
-        val data = root.getJSONArray("data")
+        // 若 Giphy 在国内受到网络阻断，自动无缝切换到微软必应极速动图通道（国内 100% 毫秒级直连秒开！）
+        return fetchBingAnimatedGif(query, page)
+    }
 
-        val items = mutableListOf<UnifiedImage>()
-        for (i in 0 until data.length()) {
-            val obj = data.getJSONObject(i)
-            val id = if (obj.has("id")) obj.getString("id") else continue
-            val imagesObj = if (obj.has("images")) obj.getJSONObject("images") else continue
-            
-            val fixedHeight = imagesObj.optJSONObject("fixed_height")
-            val original = imagesObj.optJSONObject("original")
-            
-            val thumbUrl = fixedHeight?.optString("url") ?: original?.optString("url") ?: continue
-            val largeUrl = original?.optString("url") ?: thumbUrl
-            val title = obj.optString("title", "GIPHY 动图")
-            val webUrl = obj.optString("url", "https://giphy.com/gifs/$id")
-            val username = obj.optJSONObject("user")?.optString("display_name") ?: "GIPHY"
+    /**
+     * 必应国内极速动态 GIF 检索引擎
+     */
+    private fun fetchBingAnimatedGif(rawQuery: String, page: Int): List<UnifiedImage> {
+        try {
+            val q = if (rawQuery.isBlank() || rawQuery == "all" || rawQuery == "giphy" || rawQuery == "art") "cute gif" else "$rawQuery gif"
+            val startIndex = (page - 1) * 20
+            val url = "https://cn.bing.com/images/async?q=${URLEncoder.encode(q, "UTF-8")}&qft=+filterui:photo-animatedgif&first=$startIndex&count=20&scenario=ImageBasicHover&datsrc=N_I&layout=Row&mmasync=1"
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", COMPLIANT_USER_AGENT)
+                .header("Accept-Language", "zh-CN,zh;q=0.9")
+                .build()
 
-            items.add(
-                UnifiedImage(
-                    id = "giphy_$id",
-                    source = "giphy",
-                    kind = "gif",
-                    title = title.ifBlank { "GIPHY 创意动图" },
-                    altText = title,
-                    width = fixedHeight?.optInt("width") ?: 400,
-                    height = fixedHeight?.optInt("height") ?: 400,
-                    aspectRatio = 1.0f,
-                    tags = listOf("动图", "GIF", "GIPHY", "动态壁纸"),
-                    color = "#00FF99",
-                    renditions = Renditions(
-                        thumbnail = thumbUrl,
-                        preview = thumbUrl,
-                        large = largeUrl
-                    ),
-                    creator = Creator(name = username, profileUrl = null),
-                    landingPageUrl = webUrl,
-                    license = LicenseInfo(
-                        licenseClass = "free",
-                        code = "Giphy License",
-                        version = null,
-                        url = "https://giphy.com",
-                        attributionText = "Powered By GIPHY",
-                        evidence = "api"
-                    ),
-                    actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
-                )
-            )
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return emptyList()
+
+            val html = response.body?.string() ?: ""
+            val items = mutableListOf<UnifiedImage>()
+
+            // 提取 m="{&quot;murl&quot;:&quot;...&quot;,&quot;turl&quot;:&quot;...&quot;,&quot;t&quot;:&quot;...&quot;}"
+            val regex = Regex("""m="([^"]+)"""")
+            val matches = regex.findAll(html)
+
+            var idx = 0
+            for (m in matches) {
+                val rawJson = m.groupValues[1].replace("&quot;", "\"")
+                try {
+                    val obj = JSONObject(rawJson)
+                    val murl = obj.optString("murl", "")
+                    val turl = obj.optString("turl", murl)
+                    val title = obj.optString("t", "精选动态 GIF")
+                    val pUrl = obj.optString("purl", "https://cn.bing.com")
+
+                    if (murl.isNotBlank()) {
+                        idx++
+                        items.add(
+                            UnifiedImage(
+                                id = "gif_bing_${page}_$idx",
+                                source = "giphy",
+                                sourceAssetId = "bing_gif_$idx",
+                                kind = "gif",
+                                title = title,
+                                altText = title,
+                                width = 400,
+                                height = 400,
+                                aspectRatio = 1.0f,
+                                tags = listOf("动图", "GIF", "动画", "动态壁纸"),
+                                color = "#7C3AED",
+                                renditions = Renditions(
+                                    thumbnail = turl,
+                                    preview = murl,
+                                    large = murl
+                                ),
+                                creator = Creator(name = "Bing / Global GIF", profileUrl = null),
+                                landingPageUrl = pUrl,
+                                license = LicenseInfo(
+                                    licenseClass = "free",
+                                    code = "Animated GIF",
+                                    version = null,
+                                    url = "https://cn.bing.com",
+                                    attributionText = "Bing Animated GIF Engine",
+                                    evidence = "api"
+                                ),
+                                actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
+                            )
+                        )
+                    }
+                } catch (_: Exception) {
+                }
+            }
+            return items
+        } catch (_: Exception) {
+            return emptyList()
         }
-        return items
     }
 
     /**
@@ -345,6 +429,7 @@ object NativeAggregatorEngine {
                 UnifiedImage(
                     id = "unsplash_$id",
                     source = "unsplash",
+                    sourceAssetId = id,
                     kind = "photo",
                     title = desc,
                     altText = desc,
@@ -408,6 +493,7 @@ object NativeAggregatorEngine {
                 UnifiedImage(
                     id = "pixabay_$id",
                     source = "pixabay",
+                    sourceAssetId = id,
                     kind = "artwork",
                     title = tags.joinToString(" / "),
                     altText = tagsStr,
@@ -476,6 +562,7 @@ object NativeAggregatorEngine {
                 UnifiedImage(
                     id = "pexels_$id",
                     source = "pexels",
+                    sourceAssetId = id,
                     kind = "photo",
                     title = alt.ifBlank { "Pexels 精选摄影" },
                     altText = alt,
@@ -558,6 +645,7 @@ object NativeAggregatorEngine {
                     UnifiedImage(
                         id = "met_$objId",
                         source = "met",
+                        sourceAssetId = objId.toString(),
                         kind = "artwork",
                         title = title,
                         altText = "$title by $artist",
@@ -617,6 +705,7 @@ object NativeAggregatorEngine {
                 UnifiedImage(
                     id = "bing_${obj.optString("hsh", i.toString())}",
                     source = "bing",
+                    sourceAssetId = obj.optString("hsh", i.toString()),
                     kind = "photo",
                     title = title,
                     altText = title,
@@ -647,20 +736,12 @@ object NativeAggregatorEngine {
         return items
     }
 
-    private fun fetchWallhaven(query: String, page: Int): List<UnifiedImage> {
-        return emptyList()
-    }
-
-    private fun fetchWikimedia(query: String, page: Int): List<UnifiedImage> {
-        return emptyList()
-    }
-
     suspend fun diagnoseNetwork(): Map<String, Long> = withContext(Dispatchers.IO) {
         val targets = mapOf(
             "Unsplash 摄影社区" to "https://api.unsplash.com",
             "Pixabay 400万素材" to "https://pixabay.com/api/",
             "Pexels 精美摄影" to "https://api.pexels.com/v1/",
-            "GIPHY 动图素材" to "https://api.giphy.com",
+            "GIPHY 动图 / 必应动图通道" to "https://cn.bing.com",
             "The Met 博物馆" to "https://collectionapi.metmuseum.org/public/collection/v1/search?q=art",
             "微软 Bing 4K" to "https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1"
         )

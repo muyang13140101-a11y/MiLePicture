@@ -21,6 +21,8 @@ class MiLeApplication : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        // 初始化腾讯 MMKV 原生 64 位 C++ 存储引擎 (libmmkv.so)
+        com.tencent.mmkv.MMKV.initialize(this)
     }
 
     override fun newImageLoader(): ImageLoader {
