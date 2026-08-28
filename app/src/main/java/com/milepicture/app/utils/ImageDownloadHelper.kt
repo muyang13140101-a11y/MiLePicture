@@ -39,7 +39,16 @@ object ImageDownloadHelper {
             onProgress(true)
             try {
                 val cleanTitle = title.replace(Regex("[^a-zA-Z0-9_\\u4e00-\\u9fa5-]"), "_").take(35).ifBlank { "artwork" }
-                
+
+                // 若为 Unsplash 作品，按照 Unsplash API 规范触发官方 Download Event 统计
+                if (source.equals("unsplash", ignoreCase = true) && imageUrl.contains("unsplash.com")) {
+                    try {
+                        val trackUrl = "https://api.unsplash.com/photos/$cleanTitle/download?client_id=fCY11SQN7NrbO-sS8_apII-lQXkMUlTshk9rQdm9vwc"
+                        val trackReq = Request.Builder().url(trackUrl).header("User-Agent", "MiLePicture/1.0").build()
+                        downloadClient.newCall(trackReq).execute()
+                    } catch (_: Exception) {}
+                }
+
                 val request = Request.Builder()
                     .url(imageUrl)
                     .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) MiLePicture/1.0")
