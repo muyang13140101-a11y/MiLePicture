@@ -119,10 +119,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         onSearchTriggered()
     }
 
+    fun removeSearchHistoryItem(query: String) {
+        searchHistoryRepo.removeHistory(query)
+        _searchHistory.value = searchHistoryRepo.getSearchHistory()
+    }
+
     fun clearSearchHistory() {
         searchHistoryRepo.clearHistory()
         _searchHistory.value = emptyList()
         Toast.makeText(getApplication(), "已清空搜索历史", Toast.LENGTH_SHORT).show()
+    }
+
+    fun refreshCurrent() {
+        val q = _searchQuery.value.ifBlank { currentActiveQuery }
+        search(q, 1)
     }
 
     fun setSourceFilter(sourceId: String?) {

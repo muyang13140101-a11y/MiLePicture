@@ -11,9 +11,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import com.milepicture.app.data.model.UnifiedImage
 import com.milepicture.app.ui.components.ImageCard
@@ -21,6 +24,7 @@ import com.milepicture.app.ui.components.SearchBarWithChips
 import com.milepicture.app.ui.components.ShimmerGrid
 import com.milepicture.app.ui.viewmodel.MainViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: MainViewModel,
@@ -37,6 +41,20 @@ fun HomeScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
 
     val gridState = rememberLazyStaggeredGridState()
+    val pullToRefreshState = rememberPullToRefreshState()
+
+    // 下拉刷新触发 (Pull-to-Refresh)
+    if (pullToRefreshState.isRefreshing) {
+        LaunchedEffect(true) {
+            viewModel.refreshCurrent()
+        }
+    }
+
+    LaunchedEffect(isLoading) {
+        if (!isLoading) {
+            pullToRefreshState.endRefresh()
+        }
+    }
 
     // 监听滑动到底部触发无限加载 (Pagination)
     LaunchedEffect(gridState) {
@@ -53,6 +71,7 @@ fun HomeScreen(
             .fillMaxSize()
             .statusBarsPadding()
     ) {
+        // B站风格搜索栏 + 搜索历史折叠浮层 + 顶级图库胶囊栏
         SearchBarWithChips(
             query = query,
             onQueryChange = viewModel::onQueryChange,
@@ -62,12 +81,13 @@ fun HomeScreen(
             onTagSelect = viewModel::onTagSelect,
             searchHistory = searchHistory,
             onHistoryItemClick = viewModel::onHistoryItemClick,
+            onRemoveHistoryItem = viewModel::removeSearchHistoryItem,
             onClearHistory = viewModel::clearSearchHistory
         )
 
         // 搜索中顶部流光进度条
         AnimatedVisibility(
-            visible = isLoading && images.isNotEmpty(),
+            visible = isLoading && images.isNotEmpty() && !pullToRefreshState.isRefreshing,
             enter = fadeIn() + expandVertically(),
             exit = fadeOut() + shrinkVertically()
         ) {
@@ -80,7 +100,11 @@ fun HomeScreen(
             )
         }
 
-        Box(modifier = Modifier.weight(1f)) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .nestedScroll(pullToRefreshState.nestedScrollConnection)
+        ) {
             when {
                 // 首屏全量加载中 → 骨架屏流光动画
                 isLoading && images.isEmpty() -> {
@@ -164,6 +188,12 @@ fun HomeScreen(
                     }
                 }
             }
+
+            // 下拉刷新指示器 (Pull-to-Refresh Container)
+            PullToRefreshContainer(
+                state = pullToRefreshState,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
     }
 }

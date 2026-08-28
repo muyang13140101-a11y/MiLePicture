@@ -20,8 +20,14 @@ class SearchHistoryRepository(context: Context) {
         val current = getSearchHistory().toMutableList()
         current.remove(clean)
         current.add(0, clean)
-        val trimmed = current.take(10)
+        val trimmed = current.take(15)
         prefs.edit().putString("history_list", trimmed.joinToString("|||")).apply()
+    }
+
+    fun removeHistory(query: String) {
+        val current = getSearchHistory().toMutableList()
+        current.remove(query.trim())
+        prefs.edit().putString("history_list", current.joinToString("|||")).apply()
     }
 
     fun clearHistory() {

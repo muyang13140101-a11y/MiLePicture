@@ -36,6 +36,7 @@ object NativeAggregatorEngine {
         PopularTag("pixabay", "Pixabay 插画", "pixabay"),
         PopularTag("pexels", "Pexels 唯美", "pexels"),
         PopularTag("giphy", "Giphy 动图", "giphy"),
+        PopularTag("stickers", "Giphy 贴纸", "stickers"),
         PopularTag("met", "The Met 艺术", "met"),
         PopularTag("bing", "必应 4K 壁纸", "bing")
     )
@@ -185,6 +186,7 @@ object NativeAggregatorEngine {
                         "pixabay" -> fetchPixabay(enQuery, page)
                         "pexels" -> fetchPexels(enQuery, page)
                         "giphy" -> fetchGiphyMultiType(rawQuery, page)
+                        "stickers" -> fetchGiphyStickers(rawQuery, page)
                         "met" -> fetchMet(enQuery, page)
                         "bing" -> fetchBing(enQuery, page)
                         else -> emptyList()
@@ -220,6 +222,84 @@ object NativeAggregatorEngine {
         }
 
         SearchResponse(items = combined, sources = statusList, page = page)
+    }
+
+    /**
+     * GIPHY 专属动态透明贴纸 (Stickers)
+     */
+    private fun fetchGiphyStickers(query: String, page: Int): List<UnifiedImage> {
+        val offset = (page - 1) * 20
+        val isTrending = query.isBlank() || query == "art" || query == "all" || query == "stickers"
+        val url = if (isTrending) {
+            "https://api.giphy.com/v1/stickers/trending?api_key=$GIPHY_API_KEY&limit=20&offset=$offset&rating=g"
+        } else {
+            "https://api.giphy.com/v1/stickers/search?api_key=$GIPHY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&limit=20&offset=$offset&rating=g"
+        }
+
+        try {
+            val req = Request.Builder().url(url).header("User-Agent", COMPLIANT_USER_AGENT).build()
+            val res = client.newCall(req).execute()
+            if (res.isSuccessful) {
+                val root = JSONObject(res.body?.string() ?: "")
+                if (root.has("data")) {
+                    val data = root.getJSONArray("data")
+                    val items = mutableListOf<UnifiedImage>()
+                    for (i in 0 until data.length()) {
+                        val obj = data.getJSONObject(i)
+                        val id = obj.optString("id", "")
+                        if (id.isBlank()) continue
+                        val imagesObj = obj.optJSONObject("images") ?: continue
+
+                        val fixedHeight = imagesObj.optJSONObject("fixed_height")
+                        val original = imagesObj.optJSONObject("original")
+
+                        val thumbUrl = fixedHeight?.optString("url") ?: original?.optString("url") ?: continue
+                        val largeUrl = original?.optString("url") ?: thumbUrl
+                        val title = obj.optString("title", "GIPHY 创意贴纸")
+
+                        items.add(
+                            UnifiedImage(
+                                id = "sticker_${id}_${page}_$i",
+                                source = "giphy",
+                                sourceAssetId = id,
+                                kind = "sticker",
+                                title = title.ifBlank { "GIPHY 动态贴纸" },
+                                altText = title,
+                                width = fixedHeight?.optInt("width") ?: 400,
+                                height = fixedHeight?.optInt("height") ?: 400,
+                                aspectRatio = 1.0f,
+                                tags = listOf("动态贴纸", "Sticker", "表情包", "GIPHY"),
+                                color = "#FF6B6B",
+                                renditions = Renditions(
+                                    thumbnail = thumbUrl,
+                                    preview = thumbUrl,
+                                    large = largeUrl
+                                ),
+                                creator = Creator(
+                                    name = obj.optJSONObject("user")?.optString("display_name") ?: "GIPHY Sticker Artist",
+                                    profileUrl = null
+                                ),
+                                landingPageUrl = obj.optString("url", "https://giphy.com/stickers/$id"),
+                                license = LicenseInfo(
+                                    licenseClass = "free",
+                                    code = "Giphy Sticker",
+                                    version = null,
+                                    url = "https://giphy.com",
+                                    attributionText = "Powered By GIPHY Stickers",
+                                    evidence = "api"
+                                ),
+                                actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
+                            )
+                        )
+                    }
+                    if (items.isNotEmpty()) return items
+                }
+            }
+        } catch (_: Exception) {
+        }
+
+        // 国内网络备用：必应透明贴纸检索引擎
+        return fetchBingAnimatedGif(if (query.isBlank() || query == "stickers") "cute sticker transparent png gif" else "$query sticker transparent", page)
     }
 
     /**

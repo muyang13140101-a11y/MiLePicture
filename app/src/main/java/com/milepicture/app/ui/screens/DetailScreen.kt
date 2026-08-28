@@ -7,6 +7,7 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
+import coil.compose.AsyncImage
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -319,18 +320,27 @@ fun DetailScreen(
                         }
                     }
             ) {
-                SubcomposeAsyncImage(
+                // 1. 底层：秒级显示已缓存的缩略图 (0ms 瞬开，彻底告别黑屏/加载转圈)
+                AsyncImage(
+                    model = image.renditions.thumbnail,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 280.dp, max = 520.dp)
+                        .graphicsLayer(
+                            scaleX = scale,
+                            scaleY = scale,
+                            translationX = offset.x,
+                            translationY = offset.y
+                        )
+                )
+
+                // 2. 顶层：平滑渐变升级为全高清大图原片
+                AsyncImage(
                     model = image.renditions.preview ?: image.renditions.large ?: image.renditions.thumbnail,
                     contentDescription = image.title,
                     contentScale = ContentScale.Fit,
-                    loading = {
-                        ShimmerEffect(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 280.dp, max = 480.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                        )
-                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 280.dp, max = 520.dp)
