@@ -59,9 +59,8 @@ fun FavoritesScreen(
         Triple("unsplash", "Unsplash 摄影收藏夹", "Unsplash 原创高质量摄影"),
         Triple("pixabay", "Pixabay 插画摄影夹", "Pixabay 免版税矢量与摄影"),
         Triple("pexels", "Pexels 灵感收藏夹", "Pexels 唯美视觉摄影"),
+        Triple("giphy", "GIPHY 创意动图夹", "Giphy 海量创意 GIF 动图与表情"),
         Triple("met", "The Met 世界名作夹", "纽约大都会博物馆 CC0 经典馆藏"),
-        Triple("wallhaven", "Wallhaven 壁纸收藏夹", "4K/8K 极致画质动漫与数字艺术"),
-        Triple("wikimedia", "维基共享档案夹", "维基媒体公有领域纪实与艺术"),
         Triple("bing", "必应 4K 壁纸夹", "微软必应每日全球风光摄影")
     )
 

@@ -95,7 +95,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun onTagSelect(tag: PopularTag) {
         _selectedTagId.value = tag.id
         _searchQuery.value = ""
-        search(tag.query, 1)
+        _selectedSourceFilter.value = if (tag.id == "all") null else tag.id
+        search("art", 1)
     }
 
     fun onSearchTriggered() {
@@ -108,6 +109,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun onHistoryItemClick(historyQuery: String) {
+        _selectedTagId.value = "all"
+        _selectedSourceFilter.value = null
         _searchQuery.value = historyQuery
         onSearchTriggered()
     }

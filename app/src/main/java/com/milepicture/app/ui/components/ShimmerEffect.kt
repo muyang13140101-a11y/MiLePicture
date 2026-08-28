@@ -10,20 +10,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Shimmer 骨架屏加载动画组件
- * 用于 HomeScreen 首屏加载和 DetailScreen 大图加载时的优雅过渡
+ * 商业级 Shimmer 流光骨架屏
  */
 @Composable
 fun ShimmerEffect(
     modifier: Modifier = Modifier,
-    durationMillis: Int = 1200
+    durationMillis: Int = 1100
 ) {
     val shimmerColors = listOf(
         Color(0xFF1E283D),
-        Color(0xFF2A3654),
+        Color(0xFF2E3D5C),
         Color(0xFF1E283D)
     )
 
@@ -45,36 +45,35 @@ fun ShimmerEffect(
     )
 
     Box(
-        modifier = modifier
-            .background(brush)
+        modifier = modifier.background(brush)
     )
 }
 
 /**
- * 瀑布流骨架屏 — 模拟图片卡片加载中的效果
+ * 统一标准尺寸骨架卡片 (规整美观，支持自适应比例)
  */
 @Composable
 fun ShimmerImageCard(
     modifier: Modifier = Modifier,
-    aspectRatio: Float = 1.0f
+    aspectRatio: Float? = null,
+    height: Dp? = null
 ) {
-    ShimmerEffect(
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(aspectRatio)
-            .clip(RoundedCornerShape(16.dp))
-    )
+    val cardModifier = when {
+        aspectRatio != null -> modifier.fillMaxWidth().aspectRatio(aspectRatio).clip(RoundedCornerShape(16.dp))
+        height != null -> modifier.fillMaxWidth().height(height).clip(RoundedCornerShape(16.dp))
+        else -> modifier.fillMaxWidth().height(210.dp).clip(RoundedCornerShape(16.dp))
+    }
+
+    ShimmerEffect(modifier = cardModifier)
 }
 
 /**
- * 首屏加载骨架屏网格 — 模拟瀑布流布局
+ * 规整统一的首屏骨架屏网格
  */
 @Composable
 fun ShimmerGrid(
     modifier: Modifier = Modifier
 ) {
-    val ratios = listOf(1.2f, 0.8f, 0.9f, 1.3f, 1.0f, 0.75f)
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -85,14 +84,8 @@ fun ShimmerGrid(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                ShimmerImageCard(
-                    modifier = Modifier.weight(1f),
-                    aspectRatio = ratios[row * 2]
-                )
-                ShimmerImageCard(
-                    modifier = Modifier.weight(1f),
-                    aspectRatio = ratios[row * 2 + 1]
-                )
+                ShimmerImageCard(modifier = Modifier.weight(1f), height = 210.dp)
+                ShimmerImageCard(modifier = Modifier.weight(1f), height = 210.dp)
             }
             Spacer(modifier = Modifier.height(10.dp))
         }

@@ -62,6 +62,11 @@ class MainActivity : ComponentActivity() {
                         isDownloading = isDownloading,
                         onFavoriteToggle = { viewModel.toggleFavorite(img) },
                         onDownload = { viewModel.downloadImage(img) },
+                        onTagClick = { tag ->
+                            activeDetailImage = null
+                            selectedTab = 0
+                            viewModel.onHistoryItemClick(tag)
+                        },
                         onBack = { activeDetailImage = null }
                     )
                 } else {

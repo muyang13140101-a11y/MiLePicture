@@ -5,7 +5,7 @@ import com.google.gson.annotations.SerializedName
 data class UnifiedImage(
     val id: String,
     val source: String,
-    val sourceAssetId: String,
+    val sourceAssetId: String = "",
     val kind: String?,
     val title: String?,
     val altText: String?,

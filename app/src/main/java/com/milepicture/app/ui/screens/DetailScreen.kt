@@ -30,17 +30,17 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
 import com.milepicture.app.data.model.UnifiedImage
 import com.milepicture.app.ui.components.ShimmerEffect
 import com.milepicture.app.ui.components.SourceBadge
+import com.milepicture.app.utils.ImageShareHelper
 import com.milepicture.app.utils.WallpaperHelper
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun DetailScreen(
     image: UnifiedImage,
@@ -48,6 +48,7 @@ fun DetailScreen(
     isDownloading: Boolean,
     onFavoriteToggle: () -> Unit,
     onDownload: () -> Unit,
+    onTagClick: (String) -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -57,6 +58,7 @@ fun DetailScreen(
     var showInfo by remember { mutableStateOf(false) }
     var showWallpaperDialog by remember { mutableStateOf(false) }
     var isSettingWallpaper by remember { mutableStateOf(false) }
+    var isSharing by remember { mutableStateOf(false) }
 
     // 手势无级缩放状态
     var scale by remember { mutableFloatStateOf(1f) }
@@ -160,8 +162,6 @@ fun DetailScreen(
         )
     }
 
-    var isSharing by remember { mutableStateOf(false) }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -172,12 +172,11 @@ fun DetailScreen(
                     }
                 },
                 actions = {
-                    // 全安卓版本真图片格式分享
                     IconButton(
                         onClick = {
                             val shareImgUrl = image.renditions.preview ?: image.renditions.large ?: image.renditions.thumbnail
                             scope.launch {
-                                com.milepicture.app.utils.ImageShareHelper.shareImage(
+                                ImageShareHelper.shareImage(
                                     context = context,
                                     imageUrl = shareImgUrl,
                                     title = image.title ?: "精选高清大图",
@@ -223,7 +222,6 @@ fun DetailScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 1. 收藏按钮
                     OutlinedButton(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -248,7 +246,6 @@ fun DetailScreen(
                         )
                     }
 
-                    // 2. 设为壁纸按钮
                     FilledTonalButton(
                         onClick = { showWallpaperDialog = true },
                         enabled = !isSettingWallpaper,
@@ -268,7 +265,6 @@ fun DetailScreen(
                         }
                     }
 
-                    // 3. RAW 无损保存按钮（主操作）
                     Button(
                         onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -307,7 +303,6 @@ fun DetailScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            // 沉浸式大图（支持手势捏合双击放大与平移）
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -350,43 +345,52 @@ fun DetailScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // 标题 + 来源
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                // 标题与来源（支持多行优雅换行）
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment = Alignment.Top,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    SourceBadge(source = image.source)
+                    Box(modifier = Modifier.padding(top = 2.dp)) {
+                        SourceBadge(source = image.source)
+                    }
                     Text(
-                        text = image.title ?: "Untitled",
-                        style = MaterialTheme.typography.titleLarge,
+                        text = image.title ?: "精选视觉作品",
+                        style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
+                        lineHeight = 22.sp,
                         modifier = Modifier.weight(1f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
-                // 标签
+                // 标签自动折行流式布局 (FlowRow) 彻底解决挤压竖排 BUG
                 if (image.tags.isNotEmpty()) {
-                    Row(
+                    FlowRow(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        image.tags.take(5).forEach { tag ->
+                        image.tags.take(12).forEach { tag ->
                             SuggestionChip(
-                                onClick = {},
+                                onClick = { onTagClick(tag) },
                                 label = { Text(tag, fontSize = 11.sp) },
-                                shape = RoundedCornerShape(10.dp)
+                                shape = RoundedCornerShape(10.dp),
+                                colors = SuggestionChipDefaults.suggestionChipColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                                ),
+                                border = SuggestionChipDefaults.suggestionChipBorder(
+                                    borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f),
+                                    enabled = true
+                                )
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                // 「作品信息与版权声明」可折叠面板
+                // 「作品信息与授权协议」可折叠面板
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
@@ -431,7 +435,6 @@ fun DetailScreen(
                             exit = shrinkVertically() + fadeOut()
                         ) {
                             Column(modifier = Modifier.padding(top = 12.dp)) {
-                                // 创作者信息
                                 image.creator.name?.let { creatorName ->
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -464,7 +467,7 @@ fun DetailScreen(
                                                 fontWeight = FontWeight.SemiBold
                                             )
                                             Text(
-                                                text = "原作者 / 摄影师",
+                                                text = "原作者 / 创作者",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -473,7 +476,6 @@ fun DetailScreen(
                                     Spacer(modifier = Modifier.height(10.dp))
                                 }
 
-                                // 许可证信息
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         imageVector = Icons.Default.VerifiedUser,
@@ -501,7 +503,6 @@ fun DetailScreen(
 
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                // 访问原站
                                 OutlinedButton(
                                     onClick = {
                                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(image.landingPageUrl))
