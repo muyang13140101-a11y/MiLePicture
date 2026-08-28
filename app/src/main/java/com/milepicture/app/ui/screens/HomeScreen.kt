@@ -152,7 +152,8 @@ fun HomeScreen(
                         items(images, key = { it.id }) { img ->
                             ImageCard(
                                 image = img,
-                                onClick = onImageClick
+                                onClick = onImageClick,
+                                onDoubleTapFavorite = { viewModel.toggleFavorite(it) }
                             )
                         }
 
