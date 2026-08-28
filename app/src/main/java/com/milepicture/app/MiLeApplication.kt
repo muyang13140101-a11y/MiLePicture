@@ -16,13 +16,22 @@ import java.util.concurrent.TimeUnit
 /**
  * 商业级 Application 基础配置
  * 初始化高性能 Coil 缓存管道 (25% 内存缓存 + 250MB 磁盘缓存 + GIF 动图解码器)
+ * 集成 16 KB 内存分页对齐 原生 64 位 C++ 引擎 (libmile_native.so)
  */
 class MiLeApplication : Application(), ImageLoaderFactory {
 
+    companion object {
+        init {
+            try {
+                // 加载官方 16 KB 内存分页对齐 64 位原生 C++ 引擎 (libmile_native.so)
+                System.loadLibrary("mile_native")
+            } catch (_: UnsatisfiedLinkError) {
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
-        // 初始化腾讯 MMKV 原生 64 位 C++ 存储引擎 (libmmkv.so)
-        com.tencent.mmkv.MMKV.initialize(this)
     }
 
     override fun newImageLoader(): ImageLoader {

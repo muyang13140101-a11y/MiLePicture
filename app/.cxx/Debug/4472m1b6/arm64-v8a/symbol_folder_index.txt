@@ -1,0 +1,1 @@
+E:\Android studio projects\MiLePicture\app\build\intermediates\cxx\Debug\4472m1b6\obj\arm64-v8a

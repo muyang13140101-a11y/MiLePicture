@@ -1,0 +1,1 @@
+E:\Android studio projects\MiLePicture\app\src\main\cpp\CMakeLists.txt

@@ -1,0 +1,7 @@
+[
+{
+  "directory": "E:/Android studio projects/MiLePicture/app/.cxx/Debug/4472m1b6/armeabi-v7a",
+  "command": "C:\\Users\\m3149\\AppData\\Local\\Android\\Sdk\\ndk\\27.0.12077973\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe --target=armv7-none-linux-androideabi24 --sysroot=C:/Users/m3149/AppData/Local/Android/Sdk/ndk/27.0.12077973/toolchains/llvm/prebuilt/windows-x86_64/sysroot -Dmile_native_EXPORTS -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -march=armv7-a -mthumb -Wformat -Werror=format-security  -std=c++17 -fno-limit-debug-info  -fPIC -o CMakeFiles\\mile_native.dir\\mile_native.cpp.o -c \"E:\\Android studio projects\\MiLePicture\\app\\src\\main\\cpp\\mile_native.cpp\"",
+  "file": "E:\\Android studio projects\\MiLePicture\\app\\src\\main\\cpp\\mile_native.cpp"
+}
+]
