@@ -79,10 +79,18 @@ object LocalTranslator {
         "咖啡" to "coffee cafe aesthetic",
         "茶" to "tea leaves traditional",
         "国风" to "chinese traditional culture orient",
-        "故宫" to "forbidden city ancient architecture palace",
         "大都会" to "metropolitan museum classical art",
         "博物馆" to "museum sculpture painting artifact",
-        "雕塑" to "sculpture statue classical art"
+        "雕塑" to "sculpture statue classical art",
+        "彩虹" to "rainbow pride aesthetic",
+        "情侣" to "couple love romantic",
+        "派对" to "party celebration festival",
+        "酷" to "cool aesthetic cyberpunk",
+        "帅哥" to "handsome man portrait",
+        "美女" to "beautiful woman portrait",
+        "同性" to "pride lgbt love",
+        "骄傲" to "pride rainbow love",
+        "爱情" to "love romantic couple"
     )
 
     private val CHINESE_REGEX = Regex("[\\u4e00-\\u9fa5]")

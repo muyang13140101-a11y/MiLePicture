@@ -11,6 +11,11 @@ import com.milepicture.app.data.engine.NativeAggregatorEngine
 import com.milepicture.app.data.model.*
 import com.milepicture.app.data.repository.FavoritesRepository
 import com.milepicture.app.data.repository.SearchHistoryRepository
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import com.milepicture.app.data.engine.NetworkLogItem
+import com.milepicture.app.data.engine.NetworkLogger
 import com.milepicture.app.utils.ImageDownloadHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,6 +65,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _selectedSourceFilter = MutableStateFlow<String?>(null)
     val selectedSourceFilter: StateFlow<String?> = _selectedSourceFilter.asStateFlow()
+
+    // 实时网络与 Bug 诊断日志流
+    val networkLogs: StateFlow<List<NetworkLogItem>> = NetworkLogger.logsFlow
 
     // 缓存大小统计
     private val _cacheSizeText = MutableStateFlow("计算中...")
@@ -293,6 +301,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _isDiagnosing.value = false
             }
         }
+    }
+
+    fun copyLogsToClipboard() {
+        val summary = NetworkLogger.exportSummary()
+        val clipboard = getApplication<Application>().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("MiLePicture Network Logs", summary)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(getApplication(), "📋 已复制实时网络与 Bug 诊断日志到剪贴板", Toast.LENGTH_LONG).show()
+    }
+
+    fun clearNetworkLogs() {
+        NetworkLogger.clear()
+        Toast.makeText(getApplication(), "已清空网络诊断日志", Toast.LENGTH_SHORT).show()
     }
 
     fun refreshCacheSize() {

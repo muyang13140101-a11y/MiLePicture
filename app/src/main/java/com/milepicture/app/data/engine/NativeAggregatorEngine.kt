@@ -180,8 +180,9 @@ object NativeAggregatorEngine {
 
         val deferredList = activeSources.map { src ->
             async {
+                val t0 = System.currentTimeMillis()
                 try {
-                    when (src) {
+                    val items = when (src) {
                         "unsplash" -> fetchUnsplash(enQuery, page)
                         "pixabay" -> fetchPixabay(enQuery, page)
                         "pexels" -> fetchPexels(enQuery, page)
@@ -191,7 +192,29 @@ object NativeAggregatorEngine {
                         "bing" -> fetchBing(enQuery, page)
                         else -> emptyList()
                     }
-                } catch (_: Exception) {
+                    val dt = System.currentTimeMillis() - t0
+                    NetworkLogger.log(
+                        source = src,
+                        url = "Search [$rawQuery] -> [$enQuery] (Page $page)",
+                        latencyMs = dt,
+                        isSuccess = items.isNotEmpty(),
+                        statusCode = 200,
+                        itemCount = items.size,
+                        errorMessage = if (items.isEmpty()) "未匹配到素材或该源暂无结果" else null
+                    )
+                    items
+                } catch (e: Exception) {
+                    val dt = System.currentTimeMillis() - t0
+                    val errDetail = "${e.javaClass.simpleName}: ${e.message}"
+                    NetworkLogger.log(
+                        source = src,
+                        url = "Search [$rawQuery] -> [$enQuery] (Page $page)",
+                        latencyMs = dt,
+                        isSuccess = false,
+                        statusCode = 500,
+                        itemCount = 0,
+                        errorMessage = errDetail
+                    )
                     emptyList()
                 }
             }
@@ -231,9 +254,9 @@ object NativeAggregatorEngine {
         val offset = (page - 1) * 20
         val isTrending = query.isBlank() || query == "art" || query == "all" || query == "stickers"
         val url = if (isTrending) {
-            "https://api.giphy.com/v1/stickers/trending?api_key=$GIPHY_API_KEY&limit=20&offset=$offset&rating=g"
+            "https://api.giphy.com/v1/stickers/trending?api_key=$GIPHY_API_KEY&limit=20&offset=$offset&rating=pg-13"
         } else {
-            "https://api.giphy.com/v1/stickers/search?api_key=$GIPHY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&limit=20&offset=$offset&rating=g"
+            "https://api.giphy.com/v1/stickers/search?api_key=$GIPHY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&limit=20&offset=$offset&rating=pg-13"
         }
 
         try {
@@ -314,11 +337,11 @@ object NativeAggregatorEngine {
             val isTrending = query.isBlank() || query == "art" || query == "all" || query == "giphy"
             
             val endpoints = listOf(
-                if (isTrending) "https://api.giphy.com/v1/gifs/trending?api_key=$GIPHY_API_KEY&limit=12&offset=$offset&rating=g"
-                else "https://api.giphy.com/v1/gifs/search?api_key=$GIPHY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&limit=12&offset=$offset&rating=g",
+                if (isTrending) "https://api.giphy.com/v1/gifs/trending?api_key=$GIPHY_API_KEY&limit=15&offset=$offset&rating=pg-13"
+                else "https://api.giphy.com/v1/gifs/search?api_key=$GIPHY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&limit=15&offset=$offset&rating=pg-13",
                 
-                if (isTrending) "https://api.giphy.com/v1/stickers/trending?api_key=$GIPHY_API_KEY&limit=8&offset=$offset&rating=g"
-                else "https://api.giphy.com/v1/stickers/search?api_key=$GIPHY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&limit=8&offset=$offset&rating=g"
+                if (isTrending) "https://api.giphy.com/v1/stickers/trending?api_key=$GIPHY_API_KEY&limit=10&offset=$offset&rating=pg-13"
+                else "https://api.giphy.com/v1/stickers/search?api_key=$GIPHY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&limit=10&offset=$offset&rating=pg-13"
             )
 
             for (url in endpoints) {
@@ -563,7 +586,7 @@ object NativeAggregatorEngine {
      * 3. Pixabay (官方 API Key 检索)
      */
     private fun fetchPixabay(query: String, page: Int): List<UnifiedImage> {
-        val url = "https://pixabay.com/api/?key=$PIXABAY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&page=$page&per_page=16&safesearch=true&image_type=all"
+        val url = "https://pixabay.com/api/?key=$PIXABAY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&page=$page&per_page=16&safesearch=false&image_type=all"
         val request = Request.Builder().url(url).header("User-Agent", COMPLIANT_USER_AGENT).build()
         val response = client.newCall(request).execute()
         if (!response.isSuccessful) return emptyList()
