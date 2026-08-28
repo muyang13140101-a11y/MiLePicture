@@ -20,7 +20,7 @@ object NativeAggregatorEngine {
     private const val UNSPLASH_ACCESS_KEY = "fCY11SQN7NrbO-sS8_apII-lQXkMUlTshk9rQdm9vwc"
     private const val PIXABAY_API_KEY = "53312716-9814421362fbbe2d0c40a739e"
     private const val PEXELS_API_KEY = "rRzig9DDb71696aibKDrtaCa1wr8U0L7M00QTKFwooVzZ4c7Hcn88BNY"
-    private const val GIPHY_API_KEY = "sXpGFDGZs0Dv1mmNFvYaGUvYwKX0PWIh"
+    private const val GIPHY_API_KEY = "XInfz9sD5s33K9yMLGbeqib0koJYlgeB"
     private const val WALLHAVEN_API_KEY = "BSNQRlRmZV27Y86tlYl7845PPNxmnuEm"
 
     private val client = OkHttpClient.Builder()
