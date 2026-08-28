@@ -106,9 +106,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onTagSelect(tag: PopularTag) {
         _selectedTagId.value = tag.id
-        _searchQuery.value = ""
         _selectedSourceFilter.value = if (tag.id == "all") null else tag.id
-        search("art", 1)
+        val q = _searchQuery.value.ifBlank { "art" }
+        search(q, 1)
     }
 
     fun onSearchTriggered() {
