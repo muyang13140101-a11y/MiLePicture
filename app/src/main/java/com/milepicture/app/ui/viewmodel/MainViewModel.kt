@@ -5,6 +5,8 @@ import android.widget.Toast
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import coil.Coil
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import com.milepicture.app.data.engine.NativeAggregatorEngine
 import com.milepicture.app.data.model.*
 import com.milepicture.app.data.repository.FavoritesRepository
@@ -70,10 +72,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isDiagnosing = MutableStateFlow(false)
     val isDiagnosing: StateFlow<Boolean> = _isDiagnosing.asStateFlow()
 
-    // 分页状态管理
+    // 分页状态与智能静默预加载缓存 (Prefetch Buffer)
     private var currentPage = 1
     private var isLastPage = false
     private var currentActiveQuery = "art"
+    private var isPrefetching = false
+    private var prefetchedBuffer: List<UnifiedImage>? = null
 
     init {
         _favorites.value = favoritesRepo.loadFavorites()
@@ -126,10 +130,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         onSearchTriggered()
     }
 
+    /**
+     * 下滑无限加载 (优先消费后台预取缓存，实现 0ms 瞬间上屏)
+     */
     fun loadNextPage() {
         if (_isLoading.value || _isLoadingMore.value || isLastPage) return
 
         viewModelScope.launch {
+            // 1. 如果后台已经提前预取好了下一页数据，立刻 0ms 瞬间合并上屏
+            val cached = prefetchedBuffer
+            if (!cached.isNullOrEmpty()) {
+                prefetchedBuffer = null
+                currentPage++
+                val existingIds = _images.value.map { it.id }.toSet()
+                val uniqueNew = cached.filterNot { it.id in existingIds }
+                if (uniqueNew.isNotEmpty()) {
+                    _images.value = _images.value + uniqueNew
+                    preloadImagesToCoil(uniqueNew)
+                    // 消费完后立即静默预取再下一页
+                    triggerBackgroundPrefetch(currentPage + 1)
+                    return@launch
+                }
+            }
+
+            // 2. 否则进行正常网络分页请求
             _isLoadingMore.value = true
             try {
                 val nextPage = currentPage + 1
@@ -145,12 +169,72 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     currentPage = nextPage
                     val existingIds = _images.value.map { it.id }.toSet()
-                    val uniqueNew = newItems.filter { it.id !in existingIds }
+                    val uniqueNew = newItems.filterNot { it.id in existingIds }
                     _images.value = _images.value + uniqueNew
+                    preloadImagesToCoil(uniqueNew)
+                    // 静默预加载再下一页
+                    triggerBackgroundPrefetch(currentPage + 1)
                 }
             } catch (_: Exception) {
             } finally {
                 _isLoadingMore.value = false
+            }
+        }
+    }
+
+    /**
+     * 智能后台静默预取下一页数据 (后台默默准备好，用户下滑时无需等待)
+     */
+    fun triggerBackgroundPrefetch(pageToPrefetch: Int) {
+        if (isPrefetching || isLastPage) return
+        isPrefetching = true
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val response = NativeAggregatorEngine.search(
+                    rawQuery = currentActiveQuery,
+                    page = pageToPrefetch,
+                    sourceFilter = _selectedSourceFilter.value
+                )
+                if (response.items.isNotEmpty()) {
+                    val existingIds = _images.value.map { it.id }.toSet()
+                    val unique = response.items.filterNot { it.id in existingIds }
+                    prefetchedBuffer = unique
+                    // 在后台提前让 Coil 下载并解码大图和缩略图
+                    preloadImagesToCoil(unique)
+                }
+            } catch (_: Exception) {
+            } finally {
+                isPrefetching = false
+            }
+        }
+    }
+
+    /**
+     * 商业级 Coil 缓存预热 (提前在内存与磁盘中解码好缩略图和大图，点击详情秒开 0 延迟)
+     */
+    private fun preloadImagesToCoil(items: List<UnifiedImage>) {
+        val context = getApplication<Application>()
+        val loader = Coil.imageLoader(context)
+
+        items.take(12).forEach { img ->
+            // 预热缩略图
+            val thumbReq = ImageRequest.Builder(context)
+                .data(img.renditions.thumbnail)
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.ENABLED)
+                .build()
+            loader.enqueue(thumbReq)
+
+            // 预热高清预览图（用户点击进入大图时 0 延迟秒开）
+            val largeUrl = img.renditions.preview ?: img.renditions.large
+            if (!largeUrl.isNullOrBlank() && largeUrl != img.renditions.thumbnail) {
+                val largeReq = ImageRequest.Builder(context)
+                    .data(largeUrl)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .build()
+                loader.enqueue(largeReq)
             }
         }
     }
@@ -220,12 +304,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun clearAppCache() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                // 清除 Coil 内存与磁盘缓存
                 val imageLoader = Coil.imageLoader(getApplication())
                 imageLoader.memoryCache?.clear()
                 imageLoader.diskCache?.clear()
 
-                // 清理临时文件目录
                 val cacheDir = getApplication<Application>().cacheDir
                 deleteDir(cacheDir)
                 withContext(Dispatchers.Main) {
@@ -265,6 +347,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             currentPage = 1
             isLastPage = false
             currentActiveQuery = query
+            prefetchedBuffer = null
 
             try {
                 val response = NativeAggregatorEngine.search(
@@ -273,6 +356,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     sourceFilter = _selectedSourceFilter.value
                 )
                 _images.value = response.items
+                // 首次搜索完毕后，立即静默预热大图 + 预取第 2 页
+                preloadImagesToCoil(response.items)
+                triggerBackgroundPrefetch(2)
             } catch (e: Exception) {
                 _errorMessage.value = "搜索异常: ${e.localizedMessage}"
             } finally {

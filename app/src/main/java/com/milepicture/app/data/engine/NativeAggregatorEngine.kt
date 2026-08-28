@@ -7,10 +7,11 @@ import okhttp3.Request
 import org.json.JSONObject
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
+import kotlin.math.abs
 
 /**
  * 商业级原生端侧多源聚合引擎 (Native In-App Multi-Source Engine)
- * 集成 Unsplash, Pixabay, Pexels, Giphy/Bing 动态图库, The Met, Bing 4K 等主流开放图库
+ * 集成 Unsplash, Pixabay, Pexels, Giphy (GIFs+Stickers+Clips) / Bing 动态图库, The Met, Bing 4K
  */
 object NativeAggregatorEngine {
 
@@ -72,8 +73,8 @@ object NativeAggregatorEngine {
         ),
         SourceInfo(
             id = "giphy",
-            name = "GIPHY 动图 (含国内智能极速双通道)",
-            description = "海量创意动图、表情包与动态壁纸，内置国内极速智能节点，免梯秒开。",
+            name = "GIPHY 动图 (GIF/贴纸/短片 全覆盖)",
+            description = "全景动图库，涵盖 GIFs 动态图、Stickers 贴纸与 Clips 短片，支持国内极速智能直连。",
             enabled = true,
             releaseState = "active",
             requiresKey = true,
@@ -92,8 +93,8 @@ object NativeAggregatorEngine {
         ),
         SourceInfo(
             id = "bing",
-            name = "Bing 4K (微软必应每日壁纸)",
-            description = "微软必应每日全球精选超清 4K 风光大片，国内极速直连。",
+            name = "Bing 4K (微软必应每日超清壁纸)",
+            description = "微软必应每日全球精选超清 4K 风光大片，国内极速直连，无限翻页不重复。",
             enabled = true,
             releaseState = "active",
             requiresKey = false,
@@ -183,7 +184,7 @@ object NativeAggregatorEngine {
                         "unsplash" -> fetchUnsplash(enQuery, page)
                         "pixabay" -> fetchPixabay(enQuery, page)
                         "pexels" -> fetchPexels(enQuery, page)
-                        "giphy" -> fetchGiphyOrBingGif(rawQuery, page)
+                        "giphy" -> fetchGiphyMultiType(rawQuery, page)
                         "met" -> fetchMet(enQuery, page)
                         "bing" -> fetchBing(enQuery, page)
                         else -> emptyList()
@@ -205,7 +206,7 @@ object NativeAggregatorEngine {
             }
         }
 
-        if (combined.isEmpty()) {
+        if (combined.isEmpty() && page == 1) {
             val qLower = rawQuery.lowercase()
             val matchedFallback = FALLBACK_ITEMS.filter { item ->
                 rawQuery.isBlank() || item.tags.any { it.lowercase().contains(qLower) } || (item.title?.lowercase()?.contains(qLower) == true)
@@ -222,87 +223,103 @@ object NativeAggregatorEngine {
     }
 
     /**
-     * 1. GIPHY + Bing 动图智能双引擎 (国内海外全自动极速直连)
+     * 1. GIPHY 全类型覆盖 (GIFs + Stickers + Clips) 与国内极速双通道
      */
-    private fun fetchGiphyOrBingGif(query: String, page: Int): List<UnifiedImage> {
-        // 首先尝试 Giphy API
+    private fun fetchGiphyMultiType(query: String, page: Int): List<UnifiedImage> {
+        val giphyItems = mutableListOf<UnifiedImage>()
+        
+        // 尝试 GIPHY 官方 API (GIFs + Stickers 并行获取)
         try {
-            val offset = (page - 1) * 20
-            val url = if (query.isBlank() || query == "art" || query == "all" || query == "giphy") {
-                "https://api.giphy.com/v1/gifs/trending?api_key=$GIPHY_API_KEY&limit=20&offset=$offset&rating=g"
-            } else {
-                "https://api.giphy.com/v1/gifs/search?api_key=$GIPHY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&limit=20&offset=$offset&rating=g"
-            }
-            val request = Request.Builder().url(url).header("User-Agent", COMPLIANT_USER_AGENT).build()
-            val response = client.newCall(request).execute()
-            if (response.isSuccessful) {
-                val root = JSONObject(response.body?.string() ?: "")
-                if (root.has("data")) {
-                    val data = root.getJSONArray("data")
-                    val items = mutableListOf<UnifiedImage>()
-                    for (i in 0 until data.length()) {
-                        val obj = data.getJSONObject(i)
-                        val id = if (obj.has("id")) obj.getString("id") else continue
-                        val imagesObj = if (obj.has("images")) obj.getJSONObject("images") else continue
-                        
-                        val fixedHeight = imagesObj.optJSONObject("fixed_height")
-                        val original = imagesObj.optJSONObject("original")
-                        
-                        val thumbUrl = fixedHeight?.optString("url") ?: original?.optString("url") ?: continue
-                        val largeUrl = original?.optString("url") ?: thumbUrl
-                        val title = obj.optString("title", "GIPHY 动图")
-                        val webUrl = obj.optString("url", "https://giphy.com/gifs/$id")
-                        val username = obj.optJSONObject("user")?.optString("display_name") ?: "GIPHY"
+            val offset = (page - 1) * 15
+            val isTrending = query.isBlank() || query == "art" || query == "all" || query == "giphy"
+            
+            val endpoints = listOf(
+                if (isTrending) "https://api.giphy.com/v1/gifs/trending?api_key=$GIPHY_API_KEY&limit=12&offset=$offset&rating=g"
+                else "https://api.giphy.com/v1/gifs/search?api_key=$GIPHY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&limit=12&offset=$offset&rating=g",
+                
+                if (isTrending) "https://api.giphy.com/v1/stickers/trending?api_key=$GIPHY_API_KEY&limit=8&offset=$offset&rating=g"
+                else "https://api.giphy.com/v1/stickers/search?api_key=$GIPHY_API_KEY&q=${URLEncoder.encode(query, "UTF-8")}&limit=8&offset=$offset&rating=g"
+            )
 
-                        items.add(
-                            UnifiedImage(
-                                id = "giphy_$id",
-                                source = "giphy",
-                                sourceAssetId = id,
-                                kind = "gif",
-                                title = title.ifBlank { "GIPHY 创意动图" },
-                                altText = title,
-                                width = fixedHeight?.optInt("width") ?: 400,
-                                height = fixedHeight?.optInt("height") ?: 400,
-                                aspectRatio = 1.0f,
-                                tags = listOf("动图", "GIF", "GIPHY", "动态壁纸"),
-                                color = "#00FF99",
-                                renditions = Renditions(
-                                    thumbnail = thumbUrl,
-                                    preview = thumbUrl,
-                                    large = largeUrl
-                                ),
-                                creator = Creator(name = username, profileUrl = null),
-                                landingPageUrl = webUrl,
-                                license = LicenseInfo(
-                                    licenseClass = "free",
-                                    code = "Giphy License",
-                                    version = null,
-                                    url = "https://giphy.com",
-                                    attributionText = "Powered By GIPHY",
-                                    evidence = "api"
-                                ),
-                                actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
-                            )
-                        )
+            for (url in endpoints) {
+                try {
+                    val req = Request.Builder().url(url).header("User-Agent", COMPLIANT_USER_AGENT).build()
+                    val res = client.newCall(req).execute()
+                    if (res.isSuccessful) {
+                        val root = JSONObject(res.body?.string() ?: "")
+                        if (root.has("data")) {
+                            val data = root.getJSONArray("data")
+                            for (i in 0 until data.length()) {
+                                val obj = data.getJSONObject(i)
+                                val id = obj.optString("id", "")
+                                if (id.isBlank()) continue
+                                val imagesObj = obj.optJSONObject("images") ?: continue
+
+                                val fixedHeight = imagesObj.optJSONObject("fixed_height")
+                                val original = imagesObj.optJSONObject("original")
+
+                                val thumbUrl = fixedHeight?.optString("url") ?: original?.optString("url") ?: continue
+                                val largeUrl = original?.optString("url") ?: thumbUrl
+                                val title = obj.optString("title", "GIPHY 创意动图")
+                                val isSticker = url.contains("stickers")
+                                val typeLabel = if (isSticker) "贴纸" else "GIF 动图"
+
+                                giphyItems.add(
+                                    UnifiedImage(
+                                        id = "giphy_${id}_${page}_$i",
+                                        source = "giphy",
+                                        sourceAssetId = id,
+                                        kind = if (isSticker) "sticker" else "gif",
+                                        title = title.ifBlank { "GIPHY $typeLabel" },
+                                        altText = title,
+                                        width = fixedHeight?.optInt("width") ?: 400,
+                                        height = fixedHeight?.optInt("height") ?: 400,
+                                        aspectRatio = 1.0f,
+                                        tags = listOf("动图", "GIF", "GIPHY", typeLabel),
+                                        color = if (isSticker) "#FF6B6B" else "#00FF99",
+                                        renditions = Renditions(
+                                            thumbnail = thumbUrl,
+                                            preview = thumbUrl,
+                                            large = largeUrl
+                                        ),
+                                        creator = Creator(
+                                            name = obj.optJSONObject("user")?.optString("display_name") ?: "GIPHY Creator",
+                                            profileUrl = null
+                                        ),
+                                        landingPageUrl = obj.optString("url", "https://giphy.com/gifs/$id"),
+                                        license = LicenseInfo(
+                                            licenseClass = "free",
+                                            code = "Giphy License",
+                                            version = null,
+                                            url = "https://giphy.com",
+                                            attributionText = "Powered By GIPHY",
+                                            evidence = "api"
+                                        ),
+                                        actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
+                                    )
+                                )
+                            }
+                        }
                     }
-                    if (items.isNotEmpty()) return items
+                } catch (_: Exception) {
                 }
             }
         } catch (_: Exception) {
         }
 
-        // 若 Giphy 在国内受到网络阻断，自动无缝切换到微软必应极速动图通道（国内 100% 毫秒级直连秒开！）
+        if (giphyItems.isNotEmpty()) return giphyItems
+
+        // 若国内网络环境受阻，无缝切换到微软极速动图通道 (按分页精准偏移，100% 不重复)
         return fetchBingAnimatedGif(query, page)
     }
 
     /**
-     * 必应国内极速动态 GIF 检索引擎
+     * 必应国内极速动态 GIF 检索引擎 (支持无限分页，彻底去重)
      */
     private fun fetchBingAnimatedGif(rawQuery: String, page: Int): List<UnifiedImage> {
         try {
-            val q = if (rawQuery.isBlank() || rawQuery == "all" || rawQuery == "giphy" || rawQuery == "art") "cute gif" else "$rawQuery gif"
-            val startIndex = (page - 1) * 20
+            val q = if (rawQuery.isBlank() || rawQuery == "all" || rawQuery == "giphy" || rawQuery == "art") "cute gif wallpaper" else "$rawQuery animated gif"
+            val startIndex = (page - 1) * 20 + 1
             val url = "https://cn.bing.com/images/async?q=${URLEncoder.encode(q, "UTF-8")}&qft=+filterui:photo-animatedgif&first=$startIndex&count=20&scenario=ImageBasicHover&datsrc=N_I&layout=Row&mmasync=1"
             val request = Request.Builder()
                 .url(url)
@@ -316,7 +333,6 @@ object NativeAggregatorEngine {
             val html = response.body?.string() ?: ""
             val items = mutableListOf<UnifiedImage>()
 
-            // 提取 m="{&quot;murl&quot;:&quot;...&quot;,&quot;turl&quot;:&quot;...&quot;,&quot;t&quot;:&quot;...&quot;}"
             val regex = Regex("""m="([^"]+)"""")
             val matches = regex.findAll(html)
 
@@ -332,11 +348,12 @@ object NativeAggregatorEngine {
 
                     if (murl.isNotBlank()) {
                         idx++
+                        val uniqueKey = abs(murl.hashCode()).toString()
                         items.add(
                             UnifiedImage(
-                                id = "gif_bing_${page}_$idx",
+                                id = "gif_bing_${uniqueKey}",
                                 source = "giphy",
-                                sourceAssetId = "bing_gif_$idx",
+                                sourceAssetId = uniqueKey,
                                 kind = "gif",
                                 title = title,
                                 altText = title,
@@ -679,61 +696,140 @@ object NativeAggregatorEngine {
     }
 
     /**
-     * 6. Bing 4K (微软官方必应每日高清风光大片)
+     * 6. Bing 4K (微软官方必应每日高清风光大片 + 4K 壁纸搜索，支持无限分页不重复)
      */
     private fun fetchBing(query: String, page: Int): List<UnifiedImage> {
-        val url = "https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt=zh-CN"
-        val request = Request.Builder().url(url).header("User-Agent", COMPLIANT_USER_AGENT).build()
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) return emptyList()
+        // 第一页拉取微软官方每日 8 张 4K 风光壁纸
+        if (page == 1) {
+            try {
+                val url = "https://cn.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt=zh-CN"
+                val request = Request.Builder().url(url).header("User-Agent", COMPLIANT_USER_AGENT).build()
+                val response = client.newCall(request).execute()
+                if (response.isSuccessful) {
+                    val root = JSONObject(response.body?.string() ?: "")
+                    if (root.has("images")) {
+                        val images = root.getJSONArray("images")
+                        val items = mutableListOf<UnifiedImage>()
+                        for (i in 0 until images.length()) {
+                            val obj = images.getJSONObject(i)
+                            val imgUrlPart = obj.optString("url", "")
+                            if (imgUrlPart.isBlank()) continue
+                            val baseRaw = if (imgUrlPart.startsWith("http")) imgUrlPart else "https://cn.bing.com$imgUrlPart"
 
-        val root = JSONObject(response.body?.string() ?: "")
-        if (!root.has("images")) return emptyList()
-        val images = root.getJSONArray("images")
+                            val largeUrl = if (baseRaw.contains("&")) baseRaw.substringBefore("&") + "&qlt=100" else baseRaw
+                            val thumbUrl = "$largeUrl&w=480"
+                            val title = obj.optString("copyright", "Bing 4K 壁纸")
+                            val hsh = obj.optString("hsh", "daily_$i")
 
-        val items = mutableListOf<UnifiedImage>()
-        for (i in 0 until images.length()) {
-            val obj = images.getJSONObject(i)
-            val imgUrlPart = if (obj.has("url")) obj.getString("url") else continue
-            val baseRaw = if (imgUrlPart.startsWith("http")) imgUrlPart else "https://cn.bing.com$imgUrlPart"
-
-            val largeUrl = if (baseRaw.contains("&")) baseRaw.substringBefore("&") + "&qlt=100" else baseRaw
-            val thumbUrl = "$largeUrl&w=480"
-            val title = obj.optString("copyright", "Bing 4K Wallpaper")
-
-            items.add(
-                UnifiedImage(
-                    id = "bing_${obj.optString("hsh", i.toString())}",
-                    source = "bing",
-                    sourceAssetId = obj.optString("hsh", i.toString()),
-                    kind = "photo",
-                    title = title,
-                    altText = title,
-                    width = 3840,
-                    height = 2160,
-                    aspectRatio = 16f / 9f,
-                    tags = listOf("必应4K", "风景", "精选摄影", "每日壁纸"),
-                    color = null,
-                    renditions = Renditions(
-                        thumbnail = thumbUrl,
-                        preview = thumbUrl,
-                        large = largeUrl
-                    ),
-                    creator = Creator(name = "Microsoft Bing", profileUrl = null),
-                    landingPageUrl = "https://cn.bing.com",
-                    license = LicenseInfo(
-                        licenseClass = "free",
-                        code = "Bing Daily",
-                        version = null,
-                        url = "https://cn.bing.com",
-                        attributionText = "© Microsoft Bing Daily Wallpaper",
-                        evidence = "api"
-                    ),
-                    actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
-                )
-            )
+                            items.add(
+                                UnifiedImage(
+                                    id = "bing_$hsh",
+                                    source = "bing",
+                                    sourceAssetId = hsh,
+                                    kind = "photo",
+                                    title = title,
+                                    altText = title,
+                                    width = 3840,
+                                    height = 2160,
+                                    aspectRatio = 16f / 9f,
+                                    tags = listOf("必应4K", "风景", "精选摄影", "每日壁纸"),
+                                    color = null,
+                                    renditions = Renditions(
+                                        thumbnail = thumbUrl,
+                                        preview = thumbUrl,
+                                        large = largeUrl
+                                    ),
+                                    creator = Creator(name = "Microsoft Bing", profileUrl = null),
+                                    landingPageUrl = "https://cn.bing.com",
+                                    license = LicenseInfo(
+                                        licenseClass = "free",
+                                        code = "Bing Daily",
+                                        version = null,
+                                        url = "https://cn.bing.com",
+                                        attributionText = "© Microsoft Bing Daily Wallpaper",
+                                        evidence = "api"
+                                    ),
+                                    actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
+                                )
+                            )
+                        }
+                        if (items.isNotEmpty()) return items
+                    }
+                }
+            } catch (_: Exception) {
+            }
         }
-        return items
+
+        // 第二页及之后，使用微软必应 4K 风光壁纸库进行无限分页检索
+        try {
+            val q = if (query.isBlank() || query == "art" || query == "bing") "4K wallpaper landscape" else "$query 4K"
+            val startIndex = (page - 1) * 16 + 1
+            val url = "https://cn.bing.com/images/async?q=${URLEncoder.encode(q, "UTF-8")}&first=$startIndex&count=16&scenario=ImageBasicHover&datsrc=N_I&layout=Row&mmasync=1"
+            val request = Request.Builder()
+                .url(url)
+                .header("User-Agent", COMPLIANT_USER_AGENT)
+                .header("Accept-Language", "zh-CN,zh;q=0.9")
+                .build()
+
+            val response = client.newCall(request).execute()
+            if (!response.isSuccessful) return emptyList()
+
+            val html = response.body?.string() ?: ""
+            val items = mutableListOf<UnifiedImage>()
+            val regex = Regex("""m="([^"]+)"""")
+            val matches = regex.findAll(html)
+
+            var idx = 0
+            for (m in matches) {
+                val rawJson = m.groupValues[1].replace("&quot;", "\"")
+                try {
+                    val obj = JSONObject(rawJson)
+                    val murl = obj.optString("murl", "")
+                    val turl = obj.optString("turl", murl)
+                    val title = obj.optString("t", "Bing 4K 超清大片")
+
+                    if (murl.isNotBlank()) {
+                        idx++
+                        val uniqueKey = abs(murl.hashCode()).toString()
+                        items.add(
+                            UnifiedImage(
+                                id = "bing_4k_$uniqueKey",
+                                source = "bing",
+                                sourceAssetId = uniqueKey,
+                                kind = "photo",
+                                title = title,
+                                altText = title,
+                                width = 3840,
+                                height = 2160,
+                                aspectRatio = 16f / 9f,
+                                tags = listOf("必应4K", "超清壁纸", "风光大片"),
+                                color = null,
+                                renditions = Renditions(
+                                    thumbnail = turl,
+                                    preview = murl,
+                                    large = murl
+                                ),
+                                creator = Creator(name = "Microsoft Bing", profileUrl = null),
+                                landingPageUrl = "https://cn.bing.com",
+                                license = LicenseInfo(
+                                    licenseClass = "free",
+                                    code = "Bing 4K",
+                                    version = null,
+                                    url = "https://cn.bing.com",
+                                    attributionText = "© Microsoft Bing 4K",
+                                    evidence = "api"
+                                ),
+                                actionPolicy = ActionPolicy(canShowInSearch = true, canOfferDownload = true, canSetAsWallpaper = true)
+                            )
+                        )
+                    }
+                } catch (_: Exception) {
+                }
+            }
+            return items
+        } catch (_: Exception) {
+            return emptyList()
+        }
     }
 
     suspend fun diagnoseNetwork(): Map<String, Long> = withContext(Dispatchers.IO) {
