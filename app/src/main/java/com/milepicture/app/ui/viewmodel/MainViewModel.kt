@@ -130,9 +130,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         Toast.makeText(getApplication(), "已清空搜索历史", Toast.LENGTH_SHORT).show()
     }
 
-    fun refreshCurrent() {
+    suspend fun refreshCurrent() {
         val q = _searchQuery.value.ifBlank { currentActiveQuery }
-        search(q, 1)
+        searchInternal(q, 1)
     }
 
     fun setSourceFilter(sourceId: String?) {
@@ -140,9 +140,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         onSearchTriggered()
     }
 
-    /**
-     * 下滑无限加载 (优先消费后台预取缓存，实现 0ms 瞬间上屏)
-     */
     fun loadNextPage() {
         if (_isLoading.value || _isLoadingMore.value || isLastPage) return
 
@@ -352,28 +349,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun search(query: String, page: Int) {
         viewModelScope.launch {
-            _isLoading.value = true
-            _errorMessage.value = null
-            currentPage = 1
-            isLastPage = false
-            currentActiveQuery = query
-            prefetchedBuffer = null
+            searchInternal(query, page)
+        }
+    }
 
-            try {
-                val response = NativeAggregatorEngine.search(
-                    rawQuery = query,
-                    page = page,
-                    sourceFilter = _selectedSourceFilter.value
-                )
-                _images.value = response.items
-                // 首次搜索完毕后，立即静默预热大图 + 预取第 2 页
-                preloadImagesToCoil(response.items)
-                triggerBackgroundPrefetch(2)
-            } catch (e: Exception) {
-                _errorMessage.value = "搜索异常: ${e.localizedMessage}"
-            } finally {
-                _isLoading.value = false
-            }
+    private suspend fun searchInternal(query: String, page: Int) {
+        _isLoading.value = true
+        _errorMessage.value = null
+        currentPage = 1
+        isLastPage = false
+        currentActiveQuery = query
+        prefetchedBuffer = null
+
+        try {
+            val response = NativeAggregatorEngine.search(
+                rawQuery = query,
+                page = page,
+                sourceFilter = _selectedSourceFilter.value
+            )
+            _images.value = response.items
+            // 首次搜索完毕后，立即静默预热大图 + 预取第 2 页
+            preloadImagesToCoil(response.items)
+            triggerBackgroundPrefetch(2)
+        } catch (e: Exception) {
+            _errorMessage.value = "搜索异常: ${e.localizedMessage}"
+        } finally {
+            _isLoading.value = false
         }
     }
 }

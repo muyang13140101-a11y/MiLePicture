@@ -509,7 +509,9 @@ object NativeAggregatorEngine {
             val userHtml = userLinks?.optString("html")
 
             val linksObj = obj.optJSONObject("links")
-            val landingUrl = linksObj?.optString("html") ?: "https://unsplash.com/photos/$id"
+            val rawLanding = linksObj?.optString("html") ?: "https://unsplash.com/photos/$id"
+            val utmLanding = if (rawLanding.contains("?")) "$rawLanding&utm_source=milepicture&utm_medium=referral" else "$rawLanding?utm_source=milepicture&utm_medium=referral"
+            val utmUser = if (userHtml != null) (if (userHtml.contains("?")) "$userHtml&utm_source=milepicture&utm_medium=referral" else "$userHtml?utm_source=milepicture&utm_medium=referral") else null
 
             val tagList = mutableListOf<String>()
             tagList.add("Unsplash")
@@ -540,13 +542,13 @@ object NativeAggregatorEngine {
                         preview = regularUrl,
                         large = rawUrl
                     ),
-                    creator = Creator(name = creatorName, profileUrl = userHtml),
-                    landingPageUrl = landingUrl,
+                    creator = Creator(name = creatorName, profileUrl = utmUser),
+                    landingPageUrl = utmLanding,
                     license = LicenseInfo(
                         licenseClass = "free",
-                        code = "Unsplash",
+                        code = "Unsplash License",
                         version = null,
-                        url = "https://unsplash.com/license",
+                        url = "https://unsplash.com?utm_source=milepicture&utm_medium=referral",
                         attributionText = "Photo by $creatorName on Unsplash",
                         evidence = "api"
                     ),

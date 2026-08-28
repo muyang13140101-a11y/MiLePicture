@@ -43,15 +43,10 @@ fun HomeScreen(
     val gridState = rememberLazyStaggeredGridState()
     val pullToRefreshState = rememberPullToRefreshState()
 
-    // 下拉刷新触发 (Pull-to-Refresh)
-    if (pullToRefreshState.isRefreshing) {
-        LaunchedEffect(true) {
+    // 下拉刷新触发 (Pull-to-Refresh 修复：监听 isRefreshing 触发异步刷新并在完成时立即结束转圈)
+    LaunchedEffect(pullToRefreshState.isRefreshing) {
+        if (pullToRefreshState.isRefreshing) {
             viewModel.refreshCurrent()
-        }
-    }
-
-    LaunchedEffect(isLoading) {
-        if (!isLoading) {
             pullToRefreshState.endRefresh()
         }
     }
