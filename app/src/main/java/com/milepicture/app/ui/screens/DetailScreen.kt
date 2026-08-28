@@ -319,23 +319,26 @@ fun DetailScreen(
                         }
                     }
             ) {
-                // 1. 底层：秒级显示已缓存的缩略图 (0ms 瞬开，彻底告别黑屏/加载转圈)
-                AsyncImage(
-                    model = image.renditions.thumbnail,
-                    contentDescription = null,
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 280.dp, max = 520.dp)
-                        .graphicsLayer(
-                            scaleX = scale,
-                            scaleY = scale,
-                            translationX = offset.x,
-                            translationY = offset.y
-                        )
-                )
+                val isAnimated = image.kind == "gif" || image.kind == "sticker" || image.source == "giphy"
+                if (!isAnimated) {
+                    // 1. 静态摄影/插画底层：秒级显示已缓存的缩略图 (0ms 瞬开，彻底告别黑屏/加载转圈)
+                    AsyncImage(
+                        model = image.renditions.thumbnail,
+                        contentDescription = null,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 280.dp, max = 520.dp)
+                            .graphicsLayer(
+                                scaleX = scale,
+                                scaleY = scale,
+                                translationX = offset.x,
+                                translationY = offset.y
+                            )
+                    )
+                }
 
-                // 2. 顶层：平滑渐变升级为全高清大图原片
+                // 2. 动图与高清原片渲染 (GIF/贴纸专属原生播放引擎)
                 AsyncImage(
                     model = image.renditions.preview ?: image.renditions.large ?: image.renditions.thumbnail,
                     contentDescription = image.title,

@@ -66,10 +66,9 @@ class MiLeApplication : Application(), ImageLoaderFactory {
             .okHttpClient(okHttpClient)
             .components {
                 if (Build.VERSION.SDK_INT >= 28) {
-                    add(ImageDecoderDecoder.Factory())
-                } else {
-                    add(GifDecoder.Factory())
+                    add(ImageDecoderDecoder.Factory(enforceMinimumFrameDelay = true))
                 }
+                add(GifDecoder.Factory())
             }
             .memoryCache {
                 MemoryCache.Builder(this)

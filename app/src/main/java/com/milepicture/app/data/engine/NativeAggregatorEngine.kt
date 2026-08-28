@@ -466,7 +466,7 @@ object NativeAggregatorEngine {
                                 tags = listOf("动图", "GIF", "动画", "动态壁纸"),
                                 color = "#7C3AED",
                                 renditions = Renditions(
-                                    thumbnail = turl,
+                                    thumbnail = murl,
                                     preview = murl,
                                     large = murl
                                 ),
